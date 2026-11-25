@@ -1,8 +1,10 @@
-// Proben: der Partner liest, du sprichst, "Line!" hilft.
+﻿// Proben: der Partner liest, du sprichst, "Line!" hilft.
 import { Runner, initials } from './runner.js';
 import { srAvailable, makeVAD, micStream, tts } from './speech.js';
 import { $, $$, esc, ICON, openSheet, closeSheet, toast } from './ui.js';
 import { ls } from './db.js';
+import { Reader } from './voices.js';
+import { openVoiceSheet, voiceLabel } from './voicesheet.js';
 
 const HIDE = [
   { k: 'zeigen', l: 'Text zeigen' },
@@ -24,7 +26,7 @@ export async function rehearseView(view, script, { exit }) {
    <div class="rh-top">
     <button class="ic" id="rhExit" type="button" aria-label="Proben beenden">${ICON.x}</button>
     <span class="t">${esc(script.title)}</span>
-    <button class="ic" id="rhGear" type="button" aria-label="Einstellungen">${ICON.gear}</button>
+    <button class="ic" id="rhVoice" type="button" aria-label="Partnerstimme">${ICON.voice}</button><button class="ic" id="rhGear" type="button" aria-label="Einstellungen">${ICON.tune}</button>
    </div>
    <div class="rh-lines" id="rhLines">${script.blocks.map((b, i) => lineHtml(b, i, me)).join('')}</div>
    <div class="rh-state" id="rhState">Tippe auf Play. Du bist ${esc(me.join(' / '))}.</div>
@@ -97,7 +99,7 @@ export async function rehearseView(view, script, { exit }) {
         vad = makeVAD(mic, { onLevel: v => { const l = document.getElementById('lvl'); if (l) l.style.width = Math.round(v * 100) + '%'; } });
       } catch { toast('Mikro nicht erlaubt. Weiter geht es per Tipp.'); opts.listen = 'tap'; }
     }
-    runner = new Runner({ script, me, opts, mic, vad, hooks });
+    runner = new Runner({ script, me, opts, mic, vad, hooks, reader: new Reader(script) });
   };
   await build();
   hooks.onIndex(0);
@@ -135,6 +137,7 @@ export async function rehearseView(view, script, { exit }) {
     runner.idx = at;
     if (wasPlaying) runner.play(at);
   });
+  $('#rhVoice', view).onclick = () => { runner.pause(); openVoiceSheet(script, async () => { await build(); toast('Partnerstimme: ' + voiceLabel(script)); }); };
   const leave = () => { runner?.destroy(); vad?.close(); mic?.getTracks().forEach(t => t.stop()); releaseWake(); };
   $('#rhExit', view).onclick = () => { leave(); exit(); };
   return leave;
@@ -162,8 +165,8 @@ export function settingsSheet(opts, onSave, { tape = false } = {}) {
     <input id="sRate" type="range" min="0.7" max="1.4" step="0.05" value="${opts.rate}"></div>
    <div class="field"><label for="sGap">Kurze Pause nach dem Partner: <b id="sGapV">${opts.cueGap} ms</b></label>
     <input id="sGap" type="range" min="0" max="1200" step="50" value="${opts.cueGap}"></div>
-   ${tape ? '' : `<label class="row"><input type="checkbox" id="sAct"${opts.readActions ? ' checked' : ''}> Regieanweisungen vorlesen</label>`}
-   <button class="btn gold wide" id="sSave" type="button">Übernehmen</button>`, body => {
+   ${tape ? '' : `<div class="set card"><div class="li-main"><b>Regieanweisungen vorlesen</b></div><label class="switch"><input type="checkbox" id="sAct"${opts.readActions ? ' checked' : ''} aria-label="Regieanweisungen vorlesen"><i></i></label></div>`}
+   <button class="btn fill wide" id="sSave" type="button">Übernehmen</button>`, body => {
     const upd = () => {
       $('#sPauseV', body).textContent = (+$('#sPause', body).value / 1000).toFixed(1) + ' s';
       $('#sRateV', body).textContent = (+$('#sRate', body).value).toFixed(2) + '×';

@@ -1,7 +1,7 @@
 // Kleiner IndexedDB-Speicher. Alles bleibt auf dem Handy.
 const NAME = 'klappe';
-const VERSION = 1;
-const STORES = ['scripts', 'auditions', 'takes', 'kv'];
+const VERSION = 2;
+const STORES = ['scripts', 'auditions', 'takes', 'kv', 'audio'];
 let dbp = null;
 
 function open() {

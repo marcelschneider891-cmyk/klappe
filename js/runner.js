@@ -21,14 +21,15 @@ function near(a, b) {
 const LINE_CALL = /\b(line|lein|lain|lajn|lyne|nein line)\b/g;
 
 export class Runner {
-  constructor({ script, me, opts, mic = null, vad = null, hooks }) {
+  constructor({ script, me, opts, mic = null, vad = null, hooks, reader, quietFeed = false }) {
     this.blocks = script.blocks;
     this.me = me;
     this.opts = opts; // {listen:'sr'|'vad'|'tap'|'auto', rate, pause, readActions, cueGap}
     this.mic = mic;
     this.vad = vad;
-    this.h = hooks; // onIndex(i), onState(s, extra), onFeed(text), onLevel, onFinish
-    this.cast = tts.castFor(script.characters, me, script.voices || {});
+    this.h = hooks; // onIndex(i), onState(s, extra), onFeed(text), onPartner(on), onFinish
+    this.reader = reader;
+    this.quietFeed = quietFeed; // beim Self-Tape nur anzeigen, nicht vorsagen
     this.idx = 0;
     this.token = 0;
     this.playing = false;
@@ -53,8 +54,9 @@ export class Runner {
         if (this.opts.readActions) { this.h.onState('reader', 'Regie'); await tts.speak(b.text, { rate: this.opts.rate * 1.05, pitch: 1 }); }
       } else if (!this.isMine(b)) {
         this.h.onState('reader', b.who);
-        const c = this.cast[b.who] || {};
-        await tts.speak(b.text, { voice: c.voice, pitch: c.pitch, rate: this.opts.rate });
+        this.h.onPartner?.(true);
+        await this.reader.say(b, this.opts.rate);
+        this.h.onPartner?.(false);
         if (tok !== this.token) return;
         await sleep(this.opts.cueGap ?? 150);
       } else {
@@ -121,6 +123,7 @@ export class Runner {
     const chunk = lw.slice(from, from + 4).join(' ');
     this.feedPos = from + 4;
     this.h.onFeed(chunk + (this.feedPos < lw.length ? ' …' : ''));
+    if (this.quietFeed) return;
     const wasArmed = this.opts.listen === 'vad' && this.vad;
     if (wasArmed) this.vad.disarm();
     if (this.rec) this.rec.stop();
@@ -149,7 +152,9 @@ export class Runner {
   pause() { this.stopAudio(); this.playing = false; this.h.onState('pause'); }
   stopAudio() {
     this.token++;
+    this.reader?.cancel();
     tts.cancel();
+    this.h.onPartner?.(false);
     if (this._resolveMe) { const r = this._resolveMe; this._resolveMe = null; r(); }
     if (this.rec) this.rec.stop();
     this.vad?.disarm();

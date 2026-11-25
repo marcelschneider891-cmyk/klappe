@@ -1,10 +1,10 @@
-// Offline-Speicher und "Teilen"-Ziel für PDFs aus der Mail
-const CACHE = 'klappe-v1';
+﻿// Offline-Speicher und "Teilen"-Ziel für PDFs aus der Mail
+const CACHE = 'klappe-v2';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/app.js', './js/db.js', './js/ui.js', './js/parser.js', './js/speech.js', './js/runner.js',
-  './js/rehearse.js', './js/tape.js', './js/castings.js', './js/radar.js',
-  './fonts/archivo-latin-wdth-normal.woff2', './fonts/newsreader-latin-opsz-normal.woff2', './fonts/newsreader-latin-opsz-italic.woff2',
+  './js/rehearse.js', './js/tape.js', './js/castings.js', './js/radar.js', './js/voices.js', './js/voicesheet.js', './js/profile.js',
+  './fonts/archivo-latin-wdth-normal.woff2',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'
 ];
 

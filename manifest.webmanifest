@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "Klappe – Proben, Self-Tapes, Castings",
   "short_name": "Klappe",
   "description": "Texte lernen, mit Szenenpartner proben, Self-Tapes drehen, passende Castings finden.",
@@ -7,8 +7,8 @@
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#101215",
-  "theme_color": "#101215",
+  "background_color": "#0F1113",
+  "theme_color": "#0F1113",
   "lang": "de",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
