@@ -54,12 +54,14 @@ const deadline = c => { if (!c.frist) return ''; const d = daysUntil(c.frist); r
 
 export function cardHtml(c, { neu = false } = {}) {
   return `<button class="rcard" type="button" data-id="${esc(c.id)}">
-   <span class="top">${neu ? '<span class="tag new">Neu</span>' : ''}<span class="tag">${esc(c.art || 'Casting')}</span>${ring(c.match)}</span>
+   <span class="top">${neu ? '<span class="tag new">Neu</span>' : ''}<span class="tag">${esc(c.art || 'Casting')}</span>${costTag(c)}${ring(c.match)}</span>
    <h3>${esc(c.titel)}</h3>
    ${c.rolle ? `<span class="sub">${esc(c.rolle)}</span>` : ''}
    <span class="meta">${c.ort ? `<span>${ICON.pin}${esc(c.ort)}</span>` : ''}${deadline(c)}</span>
   </button>`;
 }
+// Kostet die Bewerbung etwas (z. B. Plus-Mitgliedschaft)?
+export const costTag = c => c.bewerbungKostet ? `<span class="tag" style="background:var(--warn-c);color:var(--warn)" title="${esc(c.plattform || 'Mitgliedschaft nötig')}">Mitgliedschaft</span>` : `<span class="tag ok">Kostenlos</span>`;
 export function miniHtml(c, neu) {
   return `<a class="mini press" href="#radar" data-id="${esc(c.id)}"><span class="row" style="flex-wrap:nowrap">${neu ? '<span class="tag new">Neu</span>' : `<span class="tag">${esc(c.art || 'Casting')}</span>`}${ring(c.match)}</span><b>${esc(c.titel)}</b><small>${[c.ort, c.frist ? 'Frist ' + fmtDate(c.frist) : ''].filter(Boolean).map(esc).join(' · ')}</small></a>`;
 }
@@ -77,6 +79,7 @@ export function detailSheet(c, onChange) {
     ${c.gage ? `<dt>Gage</dt><dd>${esc(c.gage)}</dd>` : ''}
     ${c.frist ? `<dt>Frist</dt><dd>${esc(fmtDate(c.frist, { long: true, year: true }))} (${esc(relDays(c.frist))})</dd>` : ''}
     ${c.bewerbung ? `<dt>Bewerbung</dt><dd>${esc(c.bewerbung)}</dd>` : ''}
+    <dt>Bewerben</dt><dd>${c.bewerbungKostet ? `Nur mit Mitgliedschaft${c.plattform ? ' bei ' + esc(c.plattform) : ''}` : 'Kostenlos'}</dd>
     <dt>Quelle</dt><dd>${esc(c.quelle || 'unbekannt')}${c.castingbuero ? ' · ' + esc(c.castingbuero) : ''}</dd>
    </dl>
    ${c.checks?.length ? `<div class="tagbox">${c.checks.map(x => `<span class="tag ok">${ICON.check.replace('<svg', '<svg style="width:14px;height:14px"')}${esc(x)}</span>`).join('')}</div>` : ''}
@@ -116,16 +119,20 @@ export async function radarView(view, { go }) {
    <div class="chips" id="rchips">
     <button class="chip${tab === 'neu' ? ' on' : ''}" data-k="neu" type="button">Neu · ${fresh.size}</button>
     <button class="chip${tab === 'alle' ? ' on' : ''}" data-k="alle" type="button">Alle · ${list.length}</button>
+    <button class="chip${tab === 'frei' ? ' on' : ''}" data-k="frei" type="button">Kostenlos bewerben</button>
+    <button class="chip${tab === 'abo' ? ' on' : ''}" data-k="abo" type="button">Mit Mitgliedschaft</button>
     <button class="chip${tab === 'gemerkt' ? ' on' : ''}" data-k="gemerkt" type="button">Gemerkt</button>
    </div>
    <div class="stack" id="rlist" style="margin-top:8px"></div>
    ${tipps?.length ? `<div class="sec"><div class="sec-h"><h2>Kostenlos, bringt bezahlte Jobs</h2></div><div class="list">${tipps.map(t => { const u = safeUrl(t.url); return `<${u ? 'a' : 'div'} class="li"${u ? ` href="${esc(u)}" target="_blank" rel="noopener"` : ''}><span class="tile">${ICON.star}</span><span class="li-main"><b>${esc(t.titel)}</b><small style="white-space:normal">${esc(t.text)}</small></span>${u ? ICON.ext : ''}</${u ? 'a' : 'div'}>`; }).join('')}</div></div>` : ''}
-   <p class="legal" style="margin-top:20px">Nur Castings mit Gage, bei denen die Bewerbung nichts kostet: keine Bezahl-Mitgliedschaft, keine Gebühren.</p>`;
+   <p class="legal" style="margin-top:20px">Nur Castings mit Gage. „Kostenlos“ heißt: Bewerbung direkt und ohne Kosten. „Mitgliedschaft“ heißt: Die Plattform verlangt zum Bewerben ein Bezahl-Konto.</p>`;
   const render = () => {
     const hidden = new Set(ls.get('radar.hidden', [])), saved = new Set(ls.get('radar.saved', []));
     let rows = list.filter(c => !hidden.has(c.id));
     if (tab === 'neu') rows = rows.filter(c => fresh.has(c.id));
     if (tab === 'gemerkt') rows = rows.filter(c => saved.has(c.id));
+    if (tab === 'frei') rows = rows.filter(c => !c.bewerbungKostet);
+    if (tab === 'abo') rows = rows.filter(c => c.bewerbungKostet);
     rows.sort((a, b) => (fresh.has(b.id) - fresh.has(a.id)) || ((b.match || 0) - (a.match || 0)) || (a.frist || '9').localeCompare(b.frist || '9'));
     $('#rlist', view).innerHTML = rows.length ? rows.map(c => cardHtml(c, { neu: fresh.has(c.id) })).join('') :
       `<div class="empty">${illu(tab === 'gemerkt' ? 'search' : 'radar')}<b>${tab === 'neu' ? 'Nichts Neues' : tab === 'gemerkt' ? 'Noch nichts gemerkt' : 'Gerade nichts Passendes'}</b>${tab === 'alle' ? 'Das Radar sucht jeden Tag neu. Neue Treffer kommen als Benachrichtigung.' : ''}</div>`;
