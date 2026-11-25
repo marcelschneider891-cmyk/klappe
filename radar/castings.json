@@ -1,127 +1,23 @@
 {
-  "aktualisiert": "2026-11-25T12:47:04+01:00",
-  "castings": [
-    {
-      "id": "a8321ad50a09",
-      "titel": "Schauspieler fürs Tourneetheater im Schwarzwald",
-      "projekt": "Regionentheater aus dem Schwarzwald (Repertoire)",
-      "art": "Theater",
-      "rolle": "Ensemble-Schauspieler, wechselnde Rollen",
-      "rollenprofil": "männlich/divers, Spielalter 20–50, vielseitig",
-      "ort": "Bad Teinach-Zavelstein (BW), Gastspiele im deutschsprachigen Raum",
-      "drehzeitraum": "ab sofort, laufend",
-      "gage": "150 € pro Abendvorstellung, 130 € Kindervorstellung, 70 € pro Probenblock, Reise und Unterkunft bezahlt",
-      "frist": "2026-12-03",
-      "quelle": "Jobwork",
-      "castingbuero": "",
-      "url": "https://www.jobwork.com/en/job/actor-mf-for-the-regional-theater-of-the-black-forest-86399",
-      "bewerbung": "Über Jobwork („Apply now“), Profil mit Fotos und Vita",
-      "match": 84,
-      "warum": "Liegt rund 40 km von Alpirsbach, bezahlt pro Vorstellung und baut Bühnenpraxis auf. Spielalter passt.",
-      "checks": [
-        "Bezahlt",
-        "Keine Gebühren",
-        "In deiner Nähe",
-        "Reisekosten übernommen"
-      ],
-      "gefunden": "2026-11-25"
-    },
-    {
-      "id": "b869b3a25f5f",
-      "titel": "Nebenrolle „Ben“ in Horror-Serienpilot",
-      "projekt": "Retro-Horrorserie (Pilot, Staffel 1 mit 5 Folgen), Crossmedia-Projekt",
-      "art": "Serie",
-      "rolle": "Ben (Nebenrolle)",
-      "rollenprofil": "männlich/divers, Spielalter 20–30, Deutsch; kurzer, prägnanter Auftritt (Love Interest, Konfliktquelle); Gewalt, Horror-/Gore-FX",
-      "ort": "München",
-      "drehzeitraum": "Frühjahr 2027, 2 Drehtage",
-      "gage": "600 € für 2 Drehtage, Reise, Unterkunft und Catering bezahlt",
-      "frist": "2026-12-15",
-      "quelle": "Jobwork",
-      "castingbuero": "",
-      "url": "https://www.jobwork.com/en/job/actor-mf-to-play-ben-in-a-tv-series-pilot-87068",
-      "bewerbung": "Über Jobwork („Apply now“), Profil mit Fotos und Vita",
-      "match": 72,
-      "warum": "Spielalter passt genau, Dreh liegt nach deiner Verfügbarkeit ab 15.12. und Reise sowie Unterkunft werden bezahlt. Gage eher klein, dafür Serienrolle mit Profil.",
-      "checks": [
-        "Bezahlt",
-        "Keine Gebühren",
-        "Reise und Unterkunft übernommen",
-        "Süddeutschland",
-        "Drehzeit passt zur Verfügbarkeit"
-      ],
-      "gefunden": "2026-11-25"
-    },
-    {
-      "id": "2bffe9b67833",
-      "titel": "Junger Darsteller für Werbedreh (Finanzbranche)",
-      "projekt": "Werbeproduktion Foto und Film, Finanzdienstleister",
-      "art": "Werbung",
-      "rolle": "Junger Mann",
-      "rollenprofil": "männlich/divers, 18–24, moderner Haarschnitt willkommen, Erfahrung von Vorteil",
-      "ort": "Mönchengladbach (NRW)",
-      "drehzeitraum": "11.–12.12.2026 (1,5 Drehtage)",
-      "gage": "1.000 € für 1,5 Drehtage, Catering",
-      "frist": "2026-12-07",
-      "quelle": "Jobwork",
-      "castingbuero": "",
-      "url": "https://www.jobwork.com/en/job/young-actor-mf-for-a-commercial-production-in-the-financial-sector-87897",
-      "bewerbung": "Über Jobwork („Apply now“)",
-      "match": 66,
-      "warum": "Gute Tagesgage, Spielalter passt, wenn du jung genug wirkst. Weite Anreise, Reisekosten nicht angegeben.",
-      "checks": [
-        "Bezahlt",
-        "Keine Gebühren"
-      ],
-      "gefunden": "2026-11-25"
-    },
-    {
-      "id": "51a10a6a9644",
-      "titel": "Darsteller als „Student“ für Tablet-Werbevideo",
-      "projekt": "Online-Kampagne eines Technikunternehmens (Tablets)",
-      "art": "Werbung",
-      "rolle": "Student",
-      "rollenprofil": "männlich/divers, Spielalter 20–28, Schauspielerfahrung nötig, sportlich willkommen",
-      "ort": "Frankfurt am Main, bevorzugt bis 2 Std. Anfahrt",
-      "drehzeitraum": "voraussichtlich Januar 2027",
-      "gage": "1.500 € pro Tag inkl. Nutzungsrechte (1 Jahr, Europa, online), Fahrtkosten erstattet",
-      "frist": "2026-12-04",
-      "quelle": "Jobwork",
-      "castingbuero": "",
-      "url": "https://www.jobwork.com/en/job/model-actor-mf-as-a-student-for-a-video-production-in-the-tablets-category-86630",
-      "bewerbung": "Über Jobwork mit Fotos, Videolinks, Größe, Konfektions- und Schuhgröße",
-      "match": 62,
-      "warum": "Hohe Gage und Rolle im Spielalter. Frankfurt liegt etwas über der gewünschten Anfahrt, Fahrtkosten werden erstattet.",
-      "checks": [
-        "Bezahlt",
-        "Keine Gebühren",
-        "Fahrtkosten erstattet"
-      ],
-      "gefunden": "2026-11-25"
-    },
-    {
-      "id": "5dc3d6d7f280",
-      "titel": "Darsteller und Moderator für Dino-Live-Show",
-      "projekt": "DINO Live-Show für Familien",
-      "art": "Sonstiges",
-      "rolle": "Ranger, der die Dinos erklärt",
-      "rollenprofil": "männlich/divers, 25–60, Moderation vor Kindern",
-      "ort": "Mannheim (BW)",
-      "drehzeitraum": "11.12.2026–10.01.2027, 2 Shows pro Tag",
-      "gage": "200 € pro Tag, Reise, Unterkunft und Catering",
-      "frist": "2026-12-04",
-      "quelle": "Jobwork",
-      "castingbuero": "",
-      "url": "https://www.jobwork.com/en/job/actor-und-host-mf-for-a-live-dinosaur-show-87364",
-      "bewerbung": "Über Jobwork („Apply now“)",
-      "match": 48,
-      "warum": "Bezahlt und in Baden-Württemberg, aber eher Moderation als Schauspiel. Beginnt vor deiner Verfügbarkeit ab 15.12.",
-      "checks": [
-        "Bezahlt",
-        "Keine Gebühren",
-        "In Baden-Württemberg"
-      ],
-      "gefunden": "2026-11-25"
-    }
-  ]
+    "aktualisiert":  "2026-11-25T14:36:23+01:00",
+    "castings":  [
+
+                 ],
+    "tipps":  [
+                  {
+                      "titel":  "ZAV-Künstlervermittlung",
+                      "text":  "Staatliche Vermittlung der Arbeitsagentur für Schauspieler, ohne Provision. Vermittelt bezahlte Rollen in Film, Fernsehen und Theater.",
+                      "url":  "https://zav.arbeitsagentur.de/DE/UeberUns/ueber-uns_node.html"
+                  },
+                  {
+                      "titel":  "Blank \u0026 Biehl Darsteller-Pool",
+                      "text":  "Agentur für Kleindarsteller und Nebenrollen, Aufnahme laut eigener Seite kostenlos und unverbindlich. Gage wird pro Anfrage genannt.",
+                      "url":  "https://www.blankundbiehl.de/bewerbung/schauspieler/"
+                  },
+                  {
+                      "titel":  "Eine Schauspielagentur",
+                      "text":  "Seriöse Agenturen verlangen keine Gebühr vorab, sie bekommen nur Provision von deiner Gage. Sie schlagen dich für Rollen vor, die nie öffentlich ausgeschrieben werden.",
+                      "url":  ""
+                  }
+              ]
 }

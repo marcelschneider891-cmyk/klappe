@@ -7,7 +7,7 @@ import { applySheet } from './apply.js';
 import { illu } from './fx.js';
 
 // ---------- Rückmeldungen ans Radar (lernt, was dir gefällt) ----------
-const REASONS = ['Zu weit weg', 'Zu wenig Gage', 'Rolle passt nicht zu mir', 'Format interessiert mich nicht', 'Wirkt unseriös', 'Termin passt nicht'];
+const REASONS = ['Bewerbung kostet Geld', 'Zu weit weg', 'Zu wenig Gage', 'Rolle passt nicht zu mir', 'Format interessiert mich nicht', 'Wirkt unseriös', 'Termin passt nicht'];
 export async function sendFeedback(c, aktion, grund = '') {
   const item = { id: c.id, titel: c.titel, art: c.art, rolle: c.rolle, ort: c.ort, gage: c.gage, quelle: c.quelle, aktion, grund, zeit: new Date().toISOString() };
   const q = ls.get('radar.fb', []).filter(x => !(x.id === c.id && x.aktion === aktion));
@@ -37,7 +37,7 @@ export async function loadRadar() {
     if (!r.ok) throw 0;
     const data = await r.json();
     const list = (data.castings || []).filter(c => c && c.id && !(c.frist && daysUntil(c.frist) < 0));
-    return { updated: data.aktualisiert, profilStand: data.profilStand || null, feedbackStand: data.feedbackStand || null, list, offline: false };
+    return { updated: data.aktualisiert, profilStand: data.profilStand || null, feedbackStand: data.feedbackStand || null, tipps: (data.tipps || []).filter(t => t && t.titel), list, offline: false };
   } catch { return { updated: null, profilStand: null, list: [], offline: true }; }
 }
 export function newOnes(list) {
@@ -106,7 +106,7 @@ export async function radarView(view, { go }) {
   setTop({ title: 'Radar', large: true, actions: `<button class="ic" id="rRef" type="button" aria-label="Aktualisieren">${ICON.refresh}</button><button class="ic" id="rProf" type="button" aria-label="Suchprofil">${ICON.user}</button>` });
   setFab(null);
   view.innerHTML = `${largeTitle('Radar')}<div class="stack"><div class="skel" style="height:120px"></div><div class="skel" style="height:120px"></div></div>`;
-  const { updated, list, offline, feedbackStand } = await loadRadar();
+  const { updated, list, offline, feedbackStand, tipps } = await loadRadar();
   resendFeedback(feedbackStand);
   const fresh = new Set(newOnes(list).map(c => c.id));
   let tab = fresh.size ? 'neu' : 'alle';
@@ -119,7 +119,8 @@ export async function radarView(view, { go }) {
     <button class="chip${tab === 'gemerkt' ? ' on' : ''}" data-k="gemerkt" type="button">Gemerkt</button>
    </div>
    <div class="stack" id="rlist" style="margin-top:8px"></div>
-   <p class="legal" style="margin-top:20px">Nur bezahlte, öffentliche Ausschreibungen ohne Gebühren für dich.</p>`;
+   ${tipps?.length ? `<div class="sec"><div class="sec-h"><h2>Kostenlos, bringt bezahlte Jobs</h2></div><div class="list">${tipps.map(t => { const u = safeUrl(t.url); return `<${u ? 'a' : 'div'} class="li"${u ? ` href="${esc(u)}" target="_blank" rel="noopener"` : ''}><span class="tile">${ICON.star}</span><span class="li-main"><b>${esc(t.titel)}</b><small style="white-space:normal">${esc(t.text)}</small></span>${u ? ICON.ext : ''}</${u ? 'a' : 'div'}>`; }).join('')}</div></div>` : ''}
+   <p class="legal" style="margin-top:20px">Nur Castings mit Gage, bei denen die Bewerbung nichts kostet: keine Bezahl-Mitgliedschaft, keine Gebühren.</p>`;
   const render = () => {
     const hidden = new Set(ls.get('radar.hidden', [])), saved = new Set(ls.get('radar.saved', []));
     let rows = list.filter(c => !hidden.has(c.id));
