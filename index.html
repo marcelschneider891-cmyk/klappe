@@ -50,7 +50,9 @@
     var d = document.createElement('div');
     d.id = 'rescue';
     d.style.cssText = 'position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;background:#0F1113;color:#ECE8E1;font:16px/1.45 system-ui,sans-serif;text-align:center';
-    d.innerHTML = '<b style="font-size:1.2rem">Klappe startet gerade nicht</b><span style="color:#A7ACB4;max-width:320px">Meist hilft es, die App neu zu laden. Deine Skripte, Takes und dein Tagebuch bleiben erhalten.</span><button type="button" style="min-height:48px;padding:0 24px;border:0;border-radius:24px;background:#D4B072;color:#1F1708;font:600 1rem system-ui,sans-serif">App neu laden</button>';
+    var info = window.__klappeErr || 'Meist hilft es, die App neu zu laden. Deine Skripte, Takes und dein Tagebuch bleiben erhalten.';
+    var detail = window.__klappeLast ? '<small style="color:#7A8089;max-width:320px;word-break:break-word">Fehler: ' + String(window.__klappeLast).replace(/[<>&]/g, '') + '</small>' : '';
+    d.innerHTML = '<b style="font-size:1.2rem">Klappe startet gerade nicht</b><span style="color:#A7ACB4;max-width:320px">' + info + '</span>' + detail + '<button type="button" style="min-height:48px;padding:0 24px;border:0;border-radius:24px;background:#D4B072;color:#1F1708;font:600 1rem system-ui,sans-serif">App neu laden</button>';
     d.querySelector('button').onclick = function () {
       var jobs = [];
       if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }));
@@ -62,9 +64,11 @@
   window.addEventListener('error', function (e) {
     var t = e.target;
     if (t && t !== window && t.tagName !== 'SCRIPT') return; // fehlende Bilder o. Ä. ignorieren
+    window.__klappeLast = e.message || (t && t.src) || 'Skriptfehler';
     if (!window.__klappeOk) setTimeout(rescue, 300);
   }, true);
-  window.addEventListener('unhandledrejection', function () { if (!window.__klappeOk) setTimeout(rescue, 300); });
+  window.addEventListener('unhandledrejection', function (e) { window.__klappeLast = (e.reason && (e.reason.message || e.reason)) || 'Fehler'; if (!window.__klappeOk) setTimeout(rescue, 300); });
+  window.addEventListener('klappe-blocked', function () { setTimeout(rescue, 1500); });
   setTimeout(rescue, 9000);
 })();
 </script>
