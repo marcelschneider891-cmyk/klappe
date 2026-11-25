@@ -19,6 +19,8 @@ import { monologeView } from './monologe.js';
 import { warmupView, totalMin } from './warmup.js';
 import { showreelView } from './showreel.js';
 import { quellenView } from './quellen.js';
+import { neuView, hasUnseen, markSeen, CHANGELOG } from './neu.js';
+import { openTutorial, tutorialDone } from './tutorial.js';
 
 const view = $('#view');
 let cleanup = null;
@@ -40,7 +42,7 @@ async function render() {
   const h = location.hash.slice(1) || 'start';
   const [name, ...rest] = h.split('-');
   const id = rest.join('-');
-  const parent = ['skript', 'rolle', 'monologe', 'showreel'].includes(name) ? 'skripte' : ['profil', 'profilbearbeiten', 'einstellungen', 'warmup'].includes(name) ? 'start' : name === 'quellen' ? 'radar' : name;
+  const parent = ['skript', 'rolle', 'monologe', 'showreel'].includes(name) ? 'skripte' : ['profil', 'profilbearbeiten', 'einstellungen', 'warmup', 'neu'].includes(name) ? 'start' : name === 'quellen' ? 'radar' : name;
   $$('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.tab === parent));
   const full = name === 'proben' || name === 'tape';
   document.body.classList.toggle('full', full);
@@ -69,6 +71,7 @@ async function render() {
     else if (name === 'warmup') cleanup = await warmupView(view, { go });
     else if (name === 'showreel') cleanup = await showreelView(view, { go });
     else if (name === 'quellen') await quellenView(view);
+    else if (name === 'neu') neuView(view);
     else if (name === 'import') await importShared();
     else go('start', true);
   } catch (e) {
@@ -94,8 +97,10 @@ async function startView() {
   const recent = auditions.slice(0, 3);
 
   const lb = await lastBackup();
+  const showNeu = hasUnseen() && tutorialDone();
   const needBackup = (scripts.length + auditions.length > 0) && Date.now() - lb > 14 * 86400e3;
   view.innerHTML = `${largeTitle('Heute', esc(new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })) + (first ? ` · Hallo ${esc(first)}` : ''))}
+   ${showNeu ? `<a class="banner neu-b" href="#neu"><span class="tile">${ICON.star}</span><span class="li-main"><b>Klappe wurde aktualisiert</b><small>${esc(CHANGELOG[0].titel)} · schau dir an, was neu ist</small></span></a>` : ''}
    ${needBackup ? `<a class="banner" href="#einstellungen"><span class="tile">${ICON.dl}</span><span class="li-main"><b>${lb ? 'Zeit für eine neue Sicherung' : 'Mach deine erste Sicherung'}</b><small>${lb ? 'Letzte Sicherung am ' + esc(fmtDate(new Date(lb).toISOString())) : 'Damit nichts verloren geht, falls dem Gerät etwas passiert'}</small></span></a>` : ''}
    ${due ? `<a class="due" href="#radar" data-open="${esc(due.id)}"><span class="tile">${ICON.clock}</span><span class="li-main"><b>${esc(due.titel)}</b><small>Frist ${esc(relDays(due.frist))}</small></span></a>` : ''}
    <section class="sec"><div class="sec-h"><h2>Neu im Radar${fresh.length ? ` · ${fresh.length}` : ''}</h2><a href="#radar">Alle</a></div>
@@ -460,6 +465,10 @@ splash();
 autoSync();
 window.addEventListener('klappe-synced', () => { if (!document.body.classList.contains('full') && $('#sheet').hidden) render(); });
 render().finally(() => { window.__klappeOk = true; document.getElementById('rescue')?.remove(); });
+// Erster Start: Tutorial zeigen; wer es durch hat, braucht den Update-Hinweis für diese Version nicht mehr
+window.addEventListener('klappe-tutorial', () => openTutorial());
+window.addEventListener('klappe-tutorial-done', () => { if ((location.hash.slice(1) || 'start') === 'start' && $('#sheet').hidden) render(); });
+if (!tutorialDone()) setTimeout(async () => { if (!(await hasData().catch(() => true))) markSeen(); openTutorial(); }, 1500);
 setTimeout(() => scheduleReminders().catch(() => {}), 3000);
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState !== 'visible') return;

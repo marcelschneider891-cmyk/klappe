@@ -229,7 +229,7 @@ export async function settingsView(view, { go }) {
     </div>
     <div class="card pad stack" style="margin-top:12px">
      <div class="row" style="justify-content:space-between"><b>ElevenLabs</b><span class="tag${eleven.key() ? ' ok' : ''}" id="elState">${eleven.key() ? 'Verbunden' : 'Nicht verbunden'}</span></div>
-     <p class="muted small">Natürliche Stimmen mit deinem eigenen ElevenLabs-Konto. Den API-Schlüssel findest du auf elevenlabs.io unter „Developers › API Keys“. Er braucht die Rechte „Text to Speech“ und „Voices: Read“. Er bleibt nur auf diesem Handy.</p>
+     <p class="muted small">Natürliche Stimmen mit deinem eigenen ElevenLabs-Konto. Den API-Schlüssel findest du auf elevenlabs.io unter „Developers › API Keys“. Er braucht die Rechte „Text to Speech“ und „Voices: Read“. Ist der Abgleich an, kommt er automatisch auch auf dein anderes Gerät.</p>
      <div class="field"><label for="sKey">API-Schlüssel</label><input class="inp" id="sKey" type="password" autocomplete="off" spellcheck="false" value="${esc(eleven.key())}" placeholder="sk_…"></div>
      <div class="grid2"><button class="btn tonal" id="sKeySave" type="button">Prüfen und speichern</button><button class="btn out" id="sKeyDel" type="button"${eleven.key() ? '' : ' disabled'}>Entfernen</button></div>
      <div id="sElVoice"></div>
@@ -278,7 +278,14 @@ export async function settingsView(view, { go }) {
      <div class="set"><div class="li-main"><b>Vor dem Löschen schützen</b><small>${persisted ? 'Aktiv: Android räumt deine Daten nicht automatisch weg' : 'Verhindert, dass Android bei wenig Speicher aufräumt'}</small></div>${persisted ? `<span class="tag ok">An</span>` : `<button class="btn sm tonal" id="sPersist" type="button">Aktivieren</button>`}</div>
     </div>
    </div>
-   <p class="legal">Klappe · Version 2</p>`;
+   <div class="sec"><div class="sec-h"><h2>Hilfe</h2></div>
+    <div class="list">
+     <a class="li" href="#neu"><span class="tile">${ICON.star}</span><span class="li-main"><b>Was ist neu</b><small>Alle Neuerungen und Verbesserungen</small></span>${ICON.chev}</a>
+     <a class="li" href="#" id="sTut"><span class="tile">${ICON.info}</span><span class="li-main"><b>Tutorial ansehen</b><small>Die wichtigsten Funktionen in einer Minute</small></span>${ICON.chev}</a>
+    </div>
+   </div>
+   <p class="legal">Klappe · Stand 25. November 2026</p>`;
+  $('#sTut', view).onclick = e => { e.preventDefault(); window.dispatchEvent(new Event('klappe-tutorial')); };
 
   $('#sSrc', view).onclick = e => { const b = e.target.closest('[data-k]'); if (!b) return; setVoiceDefaults({ source: b.dataset.k }); $$('#sSrc button', view).forEach(x => x.classList.toggle('on', x === b)); toast('Standard: ' + b.textContent); };
   $('#sListen', view).onchange = e => { ls.set('rehearse.opts', { ...ls.get('rehearse.opts', {}), listen: e.target.value }); toast('Gespeichert'); };

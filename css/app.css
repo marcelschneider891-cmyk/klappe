@@ -473,3 +473,30 @@ input[type=range]{width:100%;accent-color:var(--primary)}
  .tp-prompt .x{font-size:clamp(1.25rem,1.9vw,1.8rem);line-height:1.35}
  .tp-prompt .w{font-size:.8rem}
 }
+/* ---------- Tutorial ---------- */
+.tut{position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;padding:max(24px,env(safe-area-inset-top)) 24px max(24px,env(safe-area-inset-bottom));background:radial-gradient(120% 70% at 50% 0%,rgba(212,176,114,.14),transparent 60%),var(--bg);animation:tutIn .25s ease both;touch-action:pan-y;user-select:none}
+.tut.out{animation:tutOut .22s ease both}
+.tut-skip{position:absolute;top:max(14px,env(safe-area-inset-top));right:14px;min-height:40px;padding:0 14px;border:0;border-radius:20px;background:none;color:var(--on-2);font:500 .9rem var(--f);cursor:pointer}
+.tut-skip:empty{display:none}
+.tut-card{max-width:420px;text-align:center;animation:tutCard .3s ease both}
+.tut-ic{width:96px;height:96px;margin:0 auto 26px;display:grid;place-items:center;border-radius:28px;background:var(--s2);border:1px solid var(--outline);color:var(--primary)}
+.tut-ic svg{width:44px;height:44px}
+.tut-card h2{margin:0 0 12px;font:700 1.6rem/1.2 var(--f);color:var(--on)}
+.tut-card p{margin:0;color:var(--on-2);font-size:1.02rem;line-height:1.55}
+.tut-dots{display:flex;gap:8px}
+.tut-dots i{width:8px;height:8px;border-radius:4px;background:var(--outline-2);transition:width .2s,background .2s}
+.tut-dots i.on{width:22px;background:var(--primary)}
+.tut-nav{display:flex;gap:12px;width:100%;max-width:420px}
+.tut-nav .btn{flex:1}
+@keyframes tutIn{from{opacity:0}to{opacity:1}}
+@keyframes tutOut{to{opacity:0}}
+@keyframes tutCard{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.tut,.tut.out,.tut-card{animation:none}}
+
+/* ---------- Was ist neu ---------- */
+.neu-h{margin-bottom:6px}
+.neu-h h2{margin:10px 0 4px;font:700 1.3rem/1.25 var(--f)}
+.neu-h p{margin:0}
+.banner.neu-b{background:rgba(212,176,114,.12);color:var(--primary)}
+.banner.neu-b .tile{background:rgba(212,176,114,.18);color:var(--primary)}
+.banner.neu-b small{color:var(--primary)}
