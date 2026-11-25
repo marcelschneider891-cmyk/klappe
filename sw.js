@@ -1,11 +1,11 @@
 // Offline-Speicher und "Teilen"-Ziel für PDFs aus der Mail.
 // Immer zuerst aus dem Netz laden (damit nach Updates nie alte und neue Teile gemischt werden),
 // nur offline aus dem Speicher.
-const CACHE = 'klappe-v11';
+const CACHE = 'klappe-v12';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/app.js', './js/db.js', './js/ui.js', './js/parser.js', './js/speech.js', './js/runner.js',
-  './js/rehearse.js', './js/tape.js', './js/castings.js', './js/radar.js', './js/voices.js', './js/voicesheet.js', './js/profile.js', './js/backup.js', './js/ocr.js', './js/apply.js', './js/takes.js', './js/learn.js', './js/calendar.js', './js/fx.js', './js/sync.js', './js/syncui.js', './js/gagen.js', './js/role.js', './js/monologe.js', './js/warmup.js', './js/techcheck.js', './js/showreel.js', './data/monologe.json', './data/quellen.json', './js/quellen.js',
+  './js/rehearse.js', './js/tape.js', './js/castings.js', './js/radar.js', './js/voices.js', './js/voicesheet.js', './js/profile.js', './js/backup.js', './js/ocr.js', './js/apply.js', './js/takes.js', './js/learn.js', './js/calendar.js', './js/fx.js', './js/sync.js', './js/syncui.js', './js/gagen.js', './js/role.js', './js/monologe.js', './js/warmup.js', './js/techcheck.js', './js/showreel.js', './data/monologe.json', './data/quellen.json', './js/quellen.js', './js/settings.js',
   './fonts/archivo-latin-wdth-normal.woff2',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'
 ];

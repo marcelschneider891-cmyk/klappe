@@ -92,5 +92,5 @@ export const uid = () => Date.now().toString(36) + Math.random().toString(36).sl
 // Einfache Merker im localStorage (gesehene Castings usw.)
 export const ls = {
   get(k, d) { try { const v = localStorage.getItem('klappe.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem('klappe.' + k, JSON.stringify(v)); } catch {} }
+  set(k, v) { try { localStorage.setItem('klappe.' + k, JSON.stringify(v)); } catch {} window.dispatchEvent(new CustomEvent('klappe-ls', { detail: k })); }
 };

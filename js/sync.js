@@ -2,6 +2,7 @@
 // Aufbau im Repo: index.json (wer hat was wann geändert), rec/… (Einträge), blob/… (Videos, Fotos, Stimmen).
 // Pro Abgleich genau ein Commit. Der neuere Stand eines Eintrags gewinnt.
 import { db, ls, SYNC_STORES } from './db.js';
+import { localSettings, merge, applySettings } from './settings.js';
 
 const API = 'https://api.github.com';
 export const syncCfg = () => Object.assign({ repo: '', token: '', takes: false }, ls.get('sync', null) || {});
@@ -90,10 +91,27 @@ async function round(cfg) {
 
   const uploads = []; // {path, b64}
   let up = 0, down = 0, gone = 0;
+
+  // Einstellungen (ElevenLabs-Schlüssel, Stimmen, Proben …) pro Einstellung zusammenführen statt überschreiben
+  const SK = 'kv/settings';
+  let remoteSet = null;
+  if (index.items[SK]?.p && tree[index.items[SK].p]) {
+    try { remoteSet = JSON.parse(textFromB64((await (await gh(`/git/blobs/${tree[index.items[SK].p]}`)).json()).content)).v || null; } catch { remoteSet = null; }
+  }
+  const merged = merge(localSettings(), remoteSet || {});
+  applySettings(merged);
+  const norm = o => JSON.stringify(Object.keys(o || {}).sort().map(k => [k, o[k].raw, o[k].t]));
+  if (Object.keys(merged).length && norm(merged) !== norm(remoteSet)) {
+    const rp = 'rec/kv/settings.json';
+    uploads.push({ path: rp, b64: await b64FromText(JSON.stringify({ id: 'settings', v: merged })) });
+    index.items[SK] = { u: Date.now(), p: rp };
+    up++;
+  }
+  if (remoteSet && norm(merged) !== norm(localSettings())) down++;
   const keys = new Set([...Object.keys(local), ...Object.keys(index.items), ...Object.keys(tombs)]);
   for (const key of keys) {
     const store = key.split('/')[0];
-    if (!stores.includes(store)) continue;
+    if (!stores.includes(store) || key === SK) continue;
     const L = local[key], R = index.items[key], T = tombs[key];
     const lu = L ? (L.r._u || 1) : 0, ru = R ? R.u : 0, tu = T ? T._u : 0;
     if (L && lu > ru && lu > tu) {

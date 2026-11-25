@@ -23,6 +23,7 @@ export function syncSection(box, rerender) {
     <div class="row" style="justify-content:space-between"><b>Abgleich aktiv</b><span class="tag ${st.ok === false ? '' : 'ok'}" style="${st.ok === false ? 'background:var(--bad-c);color:var(--bad)' : ''}">${st.ok === false ? 'Fehler' : 'Verbunden'}</span></div>
     <p class="muted small">${when ? `Zuletzt: ${esc(when)} · ${esc(st.msg || '')}` : 'Noch nicht abgeglichen.'}</p>
     <div class="set" style="padding:0"><div class="li-main"><b>Videos (Takes) mit abgleichen</b><small>Braucht viel Datenvolumen, am besten im WLAN</small></div><label class="switch"><input type="checkbox" id="syTakes"${c.takes ? ' checked' : ''} aria-label="Takes mit abgleichen"><i></i></label></div>
+    <div class="set" style="padding:0"><div class="li-main"><b>ElevenLabs-Schlüssel mit abgleichen</b><small>Dann musst du ihn nur auf einem Gerät eintragen. Er liegt dafür in deinem privaten Speicher.</small></div><label class="switch"><input type="checkbox" id="syKey"${localStorage.getItem('klappe.sync.noKey') === 'true' ? '' : ' checked'} aria-label="ElevenLabs-Schlüssel mit abgleichen"><i></i></label></div>
     <div class="grid2"><button class="btn fill" id="syNow" type="button">${ICON.refresh} Jetzt abgleichen</button><button class="btn tonal" id="syPair" type="button">Gerät koppeln</button></div>
     <button class="btn text" id="syOff" type="button">Abgleich auf diesem Gerät trennen</button>
    </div>` : `
@@ -63,6 +64,7 @@ export function syncSection(box, rerender) {
     try { const r = await syncNow(); toast('Abgleich: ' + r.msg); } catch (e) { toast(e.message); }
     rerender();
   });
+  $('#syKey', box)?.addEventListener('change', e => { try { localStorage.setItem('klappe.sync.noKey', e.target.checked ? 'false' : 'true'); } catch {} toast(e.target.checked ? 'Schlüssel wird mit abgeglichen' : 'Schlüssel bleibt nur auf diesem Gerät'); if (e.target.checked) syncNow({ quiet: true }); });
   $('#syTakes', box)?.addEventListener('change', e => { setSyncCfg({ takes: e.target.checked }); toast(e.target.checked ? 'Takes werden mit abgeglichen' : 'Takes bleiben auf dem Gerät'); });
   $('#syOff', box)?.addEventListener('click', () => { setSyncCfg({ token: '' }); toast('Getrennt. Deine Daten bleiben auf diesem Gerät.'); rerender(); });
   $('#syPair', box)?.addEventListener('click', async () => {

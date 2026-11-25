@@ -14,6 +14,7 @@ import { lastBackup, hasData } from './backup.js';
 import { illu, splash, swipeList } from './fx.js';
 import { roleView, fmtLine, roleProgress, QUESTIONS } from './role.js';
 import { autoSync } from './sync.js';
+import './settings.js';
 import { monologeView } from './monologe.js';
 import { warmupView, totalMin } from './warmup.js';
 import { showreelView } from './showreel.js';
