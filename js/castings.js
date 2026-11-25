@@ -1,6 +1,9 @@
 // Casting-Tagebuch: jedes Vorsprechen festhalten, Zahlen sehen, Jahresrückblick.
-import { db, uid } from './db.js';
-import { $, $$, esc, ICON, openSheet, closeSheet, toast, ask, fmtDate, monthName, today, setTop, setFab, largeTitle, safeUrl, buzz } from './ui.js';
+import { db, uid, ls } from './db.js';
+import { $, $$, esc, ICON, openSheet, closeSheet, toast, ask, fmtDate, monthName, today, setTop, setFab, largeTitle, safeUrl, buzz, undoToast } from './ui.js';
+import { events, calendarHtml, dayList, googleLink, exportAll } from './calendar.js';
+import { loadRadar } from './radar.js';
+import { swipeList, illu } from './fx.js';
 
 export const STATUS = [
   { k: 'eingereicht', l: 'Eingereicht' },
@@ -44,21 +47,55 @@ export async function castingsView(view, { go }) {
   const years = [...new Set(list.map(a => a.datum?.slice(0, 4)).filter(Boolean))].sort().reverse();
   setTop({ title: 'Castings', large: true, actions: list.length ? `<button class="ic" id="wrapBtn" type="button" aria-label="Jahresrückblick">${ICON.star}</button>` : '' });
   setFab({ label: 'Eintragen', onClick: () => auditionSheet(null, () => go('castings', true)) });
-  let filter = 'alle', q = '';
+  let filter = 'alle', q = '', mode = ls.get('castings.mode', 'liste'), month = new Date(), day = today();
+  const radar = await loadRadar();
+  const ev = events(list, radar.list);
 
   view.innerHTML = `${largeTitle('Castings')}
    ${statsHtml(stats(list))}
-   <div class="sec">
+   <div class="seg sec" id="amode"><button type="button" data-k="liste"${mode === 'liste' ? ' class="on"' : ''}>Liste</button><button type="button" data-k="kalender"${mode === 'kalender' ? ' class="on"' : ''}>Kalender</button></div>
+   <div class="sec" id="aListBox"${mode === 'liste' ? '' : ' hidden'}>
     <label class="search">${ICON.search}<input id="aq" type="search" placeholder="Castings durchsuchen" aria-label="Castings durchsuchen"></label>
     <div class="chips" id="achips" style="margin-top:12px">${[{ k: 'alle', l: 'Alle' }, ...STATUS].map(s => `<button class="chip${s.k === 'alle' ? ' on' : ''}" data-k="${s.k}" type="button">${s.l}</button>`).join('')}</div>
     <div id="alist"></div>
+    ${list.length ? '<p class="legal" style="margin-top:12px">Tipp: Zeile nach rechts wischen ändert den Stand, nach links löscht.</p>' : ''}
+   </div>
+   <div class="sec" id="aCalBox"${mode === 'kalender' ? '' : ' hidden'}>
+    <div id="acal"></div>
+    <div id="aday"></div>
+    <button class="btn out wide" id="icsAll" type="button" style="margin-top:16px">${ICON.cal} Kommende Termine in den Kalender</button>
    </div>`;
+  const drawCal = () => {
+    $('#acal', view).innerHTML = calendarHtml(ev, month);
+    $$('#acal .cd', view).forEach(c => c.classList.toggle('sel', c.dataset.d === day));
+    $('#aday', view).innerHTML = dayList(ev, day);
+  };
+  drawCal();
+  $('#amode', view).onclick = e => {
+    const b = e.target.closest('[data-k]'); if (!b) return;
+    mode = b.dataset.k; ls.set('castings.mode', mode);
+    $$('#amode button', view).forEach(x => x.classList.toggle('on', x === b));
+    $('#aListBox', view).hidden = mode !== 'liste'; $('#aCalBox', view).hidden = mode !== 'kalender';
+  };
+  $('#acal', view).onclick = e => {
+    const m = e.target.closest('[data-m]');
+    if (m) { month = new Date(month.getFullYear(), month.getMonth() + +m.dataset.m, 1); drawCal(); return; }
+    const d = e.target.closest('[data-d]');
+    if (d) { day = d.dataset.d; drawCal(); }
+  };
+  $('#aday', view).onclick = e => {
+    const r = e.target.closest('[data-ev]'); if (!r) return;
+    const evs = ev.filter(x => x.date === day), x = evs[+r.dataset.ev];
+    if (x.kind === 'a') auditionSheet(x.ref, () => go('castings', true));
+    else { ls.set('radar.open', x.ref.id); go('radar'); }
+  };
+  $('#icsAll', view).onclick = () => exportAll(ev);
 
   const render = () => {
     const ql = q.toLowerCase();
     const rows = list.filter(a => (filter === 'alle' || a.status === filter) && (!ql || [a.projekt, a.rolle, a.buero, a.notiz, a.art].join(' ').toLowerCase().includes(ql)));
     const box = $('#alist', view);
-    if (!list.length) { box.innerHTML = `<div class="empty" style="margin-top:8px">${ICON.cal}<b>Noch keine Castings</b>Trag dein nächstes Vorsprechen ein. Mit der Zeit siehst du, wer dich am meisten einlädt und wie oft es klappt.</div>`; return; }
+    if (!list.length) { box.innerHTML = `<div class="empty" style="margin-top:8px">${illu('castings')}<b>Noch keine Castings</b>Trag dein nächstes Vorsprechen ein. Mit der Zeit siehst du, wer dich am meisten einlädt und wie oft es klappt.</div>`; return; }
     if (!rows.length) { box.innerHTML = '<p class="muted" style="padding:24px 4px">Nichts gefunden.</p>'; return; }
     let html = '', cur = '';
     for (const a of rows) {
@@ -71,8 +108,28 @@ export async function castingsView(view, { go }) {
   render();
   $('#aq', view).oninput = e => { q = e.target.value; render(); };
   $('#achips', view).onclick = e => { const c = e.target.closest('.chip'); if (!c) return; filter = c.dataset.k; $$('#achips .chip', view).forEach(x => x.classList.toggle('on', x === c)); render(); };
-  $('#alist', view).onclick = e => { const r = e.target.closest('[data-id]'); if (r) auditionSheet(list.find(a => a.id === r.dataset.id), () => go('castings', true)); };
+  $('#alist', view).onclick = e => { const r = e.target.closest('[data-id]'); if (r && !r.dataset.swiped) auditionSheet(list.find(a => a.id === r.dataset.id), () => go('castings', true)); };
+  // Wischen: rechts = Stand ändern, links = löschen (mit Rückgängig)
+  swipeList($('#alist', view), {
+    right: id => quickStatus(list.find(a => a.id === id), () => go('castings', true)),
+    left: async id => {
+      const a = list.find(x => x.id === id);
+      await db.del('auditions', id);
+      go('castings', true);
+      undoToast(`„${a.projekt || a.rolle}“ gelöscht`, async () => { await db.put('auditions', a); go('castings', true); });
+    }
+  });
   $('#wrapBtn')?.addEventListener('click', () => wrapped(list, +(years[0] || new Date().getFullYear())));
+}
+
+function quickStatus(a, done) {
+  openSheet('Stand ändern', `<p class="muted">${esc(a.projekt || a.rolle)}</p><div class="list">${STATUS.map(s => `<button class="li" type="button" data-k="${s.k}"><span class="tile t-${s.k}">${s.k === a.status ? ICON.check : ''}</span><span class="li-main"><b>${s.l}</b></span></button>`).join('')}</div>`, body => {
+    body.onclick = async e => {
+      const b = e.target.closest('[data-k]'); if (!b) return;
+      a.status = b.dataset.k; await db.put('auditions', a); buzz(12); closeSheet();
+      toast(a.status === 'gebucht' ? 'Gebucht. Glückwunsch!' : 'Stand: ' + statusLabel(a.status)); done?.();
+    };
+  });
 }
 
 export function auditionSheet(a, done, preset = {}) {
@@ -85,19 +142,21 @@ export function auditionSheet(a, done, preset = {}) {
     <div class="field"><label for="fR">Rolle</label><input class="inp" id="fR" value="${esc(v.rolle)}" autocomplete="off"></div>
     <div class="field"><label for="fD">Datum</label><input class="inp" id="fD" type="date" value="${esc(v.datum)}"></div>
    </div>
+   <div class="field"><label for="fZ">Uhrzeit (bei Terminen)</label><input class="inp" id="fZ" type="time" value="${esc(v.zeit || '')}"></div>
    <div class="field"><label for="fB">Casting-Büro oder Agentur</label><input class="inp" id="fB" value="${esc(v.buero)}" autocomplete="off" list="buerosList"><datalist id="buerosList"></datalist></div>
    <div class="grid2"><div class="field"><label for="fA">Format</label>${sel('fA', ART, v.art)}</div><div class="field"><label for="fT">Art</label>${sel('fT', TYP, v.typ)}</div></div>
    <div class="field"><label for="fN">Notizen</label><textarea class="inp" id="fN" style="min-height:96px">${esc(v.notiz)}</textarea></div>
    ${safeUrl(v.quelle) ? `<a class="btn out" href="${esc(v.quelle)}" target="_blank" rel="noopener">Ausschreibung öffnen ${ICON.ext}</a>` : ''}
    <button class="btn fill wide" id="fSave" type="button">Speichern</button>
-   ${a ? `<button class="btn danger wide" id="fDel" type="button">Löschen</button>` : ''}`, async body => {
+   ${a ? `<a class="btn out wide" id="fCal" href="#" target="_blank" rel="noopener">${ICON.cal} In Google Kalender eintragen</a><button class="btn danger wide" id="fDel" type="button">Löschen</button>` : ''}`, async body => {
+    if (a) { const e = events([a])[0]; if (e) $('#fCal', body).href = googleLink(e); else $('#fCal', body).hidden = true; }
     const all = await db.all('auditions');
     $('#buerosList', body).innerHTML = [...new Set(all.map(x => x.buero).filter(Boolean))].map(b => `<option value="${esc(b)}">`).join('');
     let status = v.status;
     $('#fS', body).onclick = e => { const c = e.target.closest('.chip'); if (!c) return; status = c.dataset.k; $$('#fS .chip', body).forEach(x => x.classList.toggle('on', x === c)); };
     $('#fSave', body).onclick = async () => {
       const rec = { ...v, id: v.id || uid(), created: v.created || new Date().toISOString(), projekt: $('#fP', body).value.trim(), rolle: $('#fR', body).value.trim(), datum: $('#fD', body).value,
-        buero: $('#fB', body).value.trim(), art: $('#fA', body).value, typ: $('#fT', body).value, status, notiz: $('#fN', body).value.trim() };
+        buero: $('#fB', body).value.trim(), art: $('#fA', body).value, typ: $('#fT', body).value, status, notiz: $('#fN', body).value.trim(), zeit: $('#fZ', body).value };
       if (!rec.projekt && !rec.rolle) { toast('Gib mindestens Projekt oder Rolle an.'); return; }
       await db.put('auditions', rec);
       buzz(12); closeSheet();

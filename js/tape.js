@@ -5,6 +5,7 @@ import { $, $$, esc, ICON, openSheet, closeSheet, toast, buzz } from './ui.js';
 import { db, uid, ls } from './db.js';
 import { Reader, scriptVoice, SOURCES } from './voices.js';
 import { openVoiceSheet, voiceLabel } from './voicesheet.js';
+import { downloadTake, shareTake, trimSheet, toggleFav } from './takes.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 export const LEVELS = [
@@ -14,7 +15,8 @@ export const LEVELS = [
 ];
 
 function pickMime() {
-  const c = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+  // Kein fester Codec: Chrome nimmt, was das Handy wirklich kann (fester H.264-Codec lieferte auf manchen Geräten leere Videos)
+  const c = ['video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
   return c.find(m => window.MediaRecorder?.isTypeSupported?.(m)) || '';
 }
 
@@ -237,36 +239,23 @@ function tapeSettings(opts) {
   });
 }
 
-export function takeFile(take, title) {
-  const ext = take.type.includes('mp4') ? 'mp4' : 'webm';
-  const name = `${(title || 'SelfTape').replace(/[^\wäöüÄÖÜß\- ]/g, '').trim().replace(/\s+/g, '_')}_Take${take.n}.${ext}`;
-  return new File([take.blob], name, { type: take.type.split(';')[0] });
-}
-export function downloadTake(take, title) {
-  const f = takeFile(take, title);
-  const url = URL.createObjectURL(f);
-  const a = document.createElement('a');
-  a.href = url; a.download = f.name;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-  toast('Wird unter „Downloads“ gespeichert');
-}
-export async function shareTake(take, title) {
-  const f = takeFile(take, title);
-  if (navigator.canShare?.({ files: [f] })) { try { await navigator.share({ files: [f], title: f.name }); } catch {} }
-  else downloadTake(take, title);
-}
 export function reviewTake(take, script) {
   const url = URL.createObjectURL(take.blob);
   const lv = LEVELS.find(l => l.k === take.level);
   openSheet(`Take ${take.n}`, `
    <video src="${url}" controls playsinline style="width:100%;border-radius:12px;background:#000;aspect-ratio:16/9"></video>
-   <p class="muted small">${take.dur} Sekunden${lv ? ` · Partner im Video: ${esc(lv.l.toLowerCase())}` : ''} · nur auf diesem Handy</p>
+   <p class="muted small">${take.dur} Sekunden${lv ? ` · Partner im Video: ${esc(lv.l.toLowerCase())}` : ''}${take.trimOf ? ` · zugeschnitten aus Take ${take.trimOf}` : ''} · nur auf diesem Handy</p>
    <div class="grid2">
     <button class="btn out" id="tkSave" type="button">${ICON.dl} Speichern</button>
     <button class="btn fill" id="tkShare" type="button">${ICON.share} Teilen</button>
+   </div>
+   <div class="grid2">
+    <button class="btn tonal" id="tkTrim" type="button">Zuschneiden</button>
+    <button class="btn tonal" id="tkFav" type="button">${take.fav ? ICON.starOn + ' Favorit' : ICON.star + ' Favorit'}</button>
    </div>`, body => {
-    $('#tkSave', body).onclick = () => downloadTake(take, script.title);
-    $('#tkShare', body).onclick = () => shareTake(take, script.title);
+    $('#tkSave', body).onclick = () => downloadTake(take, script);
+    $('#tkShare', body).onclick = () => shareTake(take, script);
+    $('#tkTrim', body).onclick = () => trimSheet(take, script, () => { if (location.hash.startsWith('#skript-')) window.dispatchEvent(new HashChangeEvent('hashchange')); });
+    $('#tkFav', body).onclick = async () => { const on = await toggleFav(take); $('#tkFav', body).innerHTML = (on ? ICON.starOn : ICON.star) + ' Favorit'; toast(on ? 'Als Favorit markiert' : 'Favorit entfernt'); };
   }, { onClose: () => URL.revokeObjectURL(url) });
 }

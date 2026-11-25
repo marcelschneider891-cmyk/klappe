@@ -37,7 +37,9 @@
  </div>
 </div>
 <div class="snack" id="toast" role="status" aria-live="polite"></div>
-<input type="file" id="pdfInput" accept="application/pdf,.pdf,.txt,text/plain" hidden>
+<input type="file" id="pdfInput" accept="application/pdf,.pdf,.txt,text/plain,image/*" hidden>
+<input type="file" id="camInput" accept="image/*" capture="environment" multiple hidden>
+<input type="file" id="backupInput" accept=".klappe,application/octet-stream" hidden>
 <input type="file" id="photoInput" accept="image/*" hidden>
 <script>
 // Notfall: Startet die App nicht (z. B. nach einem Update), Offline-Speicher leeren und neu laden.

@@ -2,6 +2,34 @@
 import { ls } from './db.js';
 import { $, $$, esc, ICON, fmtDate, daysUntil, relDays, safeUrl, setTop, setFab, largeTitle, toast, openSheet, closeSheet } from './ui.js';
 import { auditionSheet } from './castings.js';
+import { topic } from './profile.js';
+import { applySheet } from './apply.js';
+import { illu } from './fx.js';
+
+// ---------- Rückmeldungen ans Radar (lernt, was dir gefällt) ----------
+const REASONS = ['Zu weit weg', 'Zu wenig Gage', 'Rolle passt nicht zu mir', 'Format interessiert mich nicht', 'Wirkt unseriös', 'Termin passt nicht'];
+export async function sendFeedback(c, aktion, grund = '') {
+  const item = { id: c.id, titel: c.titel, art: c.art, rolle: c.rolle, ort: c.ort, gage: c.gage, quelle: c.quelle, aktion, grund, zeit: new Date().toISOString() };
+  const q = ls.get('radar.fb', []).filter(x => !(x.id === c.id && x.aktion === aktion));
+  q.push(item);
+  ls.set('radar.fb', q.slice(-100));
+  await pushFeedback([item]);
+}
+async function pushFeedback(items) {
+  const t = topic();
+  if (!t || !items.length) return false;
+  try {
+    await fetch(`https://ntfy.sh/${encodeURIComponent(t)}-feedback`, { method: 'POST', body: JSON.stringify(items) });
+    ls.set('radar.fbSent', Date.now());
+    return true;
+  } catch { return false; }
+}
+// Was das Radar noch nicht verarbeitet hat, gelegentlich erneut schicken
+export function resendFeedback(stand) {
+  const open = ls.get('radar.fb', []).filter(x => !stand || x.zeit > stand);
+  if (!open.length || Date.now() - ls.get('radar.fbSent', 0) < 6 * 3600e3) return;
+  pushFeedback(open);
+}
 
 export async function loadRadar() {
   try {
@@ -9,7 +37,7 @@ export async function loadRadar() {
     if (!r.ok) throw 0;
     const data = await r.json();
     const list = (data.castings || []).filter(c => c && c.id && !(c.frist && daysUntil(c.frist) < 0));
-    return { updated: data.aktualisiert, profilStand: data.profilStand || null, list, offline: false };
+    return { updated: data.aktualisiert, profilStand: data.profilStand || null, feedbackStand: data.feedbackStand || null, list, offline: false };
   } catch { return { updated: null, profilStand: null, list: [], offline: true }; }
 }
 export function newOnes(list) {
@@ -53,11 +81,21 @@ export function detailSheet(c, onChange) {
    </dl>
    ${c.checks?.length ? `<div class="tagbox">${c.checks.map(x => `<span class="tag ok">${ICON.check.replace('<svg', '<svg style="width:14px;height:14px"')}${esc(x)}</span>`).join('')}</div>` : ''}
    ${url ? `<a class="btn fill wide" href="${esc(url)}" target="_blank" rel="noopener">Zur Ausschreibung ${ICON.ext}</a>` : ''}
-   <div class="grid2"><button class="btn tonal" id="dApplied" type="button">Beworben</button><button class="btn out" id="dSave" type="button">${saved.has(c.id) ? ICON.starOn + ' Gemerkt' : ICON.star + ' Merken'}</button></div>
+   <button class="btn tonal wide" id="dLetter" type="button">${ICON.edit} Bewerbung schreiben</button>
+   <div class="grid2"><button class="btn out" id="dApplied" type="button">Beworben</button><button class="btn out" id="dSave" type="button">${saved.has(c.id) ? ICON.starOn + ' Gemerkt' : ICON.star + ' Merken'}</button></div>
    <button class="btn text" id="dHide" type="button">Passt nicht, ausblenden</button>`, body => {
-    $('#dSave', body).onclick = () => { saved.has(c.id) ? saved.delete(c.id) : saved.add(c.id); ls.set('radar.saved', [...saved]); closeSheet(); toast(saved.has(c.id) ? 'Gemerkt' : 'Nicht mehr gemerkt'); onChange?.(); };
-    $('#dHide', body).onclick = () => { ls.set('radar.hidden', [...ls.get('radar.hidden', []), c.id]); closeSheet(); toast('Ausgeblendet'); onChange?.(); };
-    $('#dApplied', body).onclick = () => auditionSheet(null, () => toast('Im Tagebuch eingetragen'), {
+    $('#dLetter', body).onclick = () => applySheet(c);
+    $('#dSave', body).onclick = () => { saved.has(c.id) ? saved.delete(c.id) : saved.add(c.id); ls.set('radar.saved', [...saved]); if (saved.has(c.id)) sendFeedback(c, 'gemerkt'); closeSheet(); toast(saved.has(c.id) ? 'Gemerkt' : 'Nicht mehr gemerkt'); onChange?.(); };
+    $('#dHide', body).onclick = () => openSheet('Warum passt es nicht?', `<p class="muted small">Das Radar merkt sich das und sucht künftig gezielter.</p><div class="chips" id="fbR" style="flex-wrap:wrap;margin:0;padding:0">${REASONS.map(r => `<button type="button" class="chip" data-r="${esc(r)}">${esc(r)}</button>`).join('')}</div><button class="btn fill wide" id="fbGo" type="button">Ausblenden</button>`, b2 => {
+      $('#fbR', b2).onclick = e => { const x = e.target.closest('.chip'); if (x) x.classList.toggle('on'); };
+      $('#fbGo', b2).onclick = () => {
+        const why = $$('#fbR .chip.on', b2).map(x => x.dataset.r).join(', ');
+        ls.set('radar.hidden', [...ls.get('radar.hidden', []), c.id]);
+        sendFeedback(c, 'passt-nicht', why);
+        closeSheet(); toast('Ausgeblendet. Das Radar lernt mit.'); onChange?.();
+      };
+    });
+    $('#dApplied', body).onclick = () => auditionSheet(null, () => { sendFeedback(c, 'beworben'); toast('Im Tagebuch eingetragen'); }, {
       projekt: c.projekt || c.titel, rolle: c.rolle || '', art: c.art, status: 'eingereicht', typ: /tape/i.test(c.bewerbung || '') ? 'Self-Tape' : 'E-Casting',
       buero: c.castingbuero || c.quelle || '', quelle: url || '', notiz: c.frist ? `Frist: ${fmtDate(c.frist, { year: true })}` : ''
     });
@@ -68,7 +106,8 @@ export async function radarView(view, { go }) {
   setTop({ title: 'Radar', large: true, actions: `<button class="ic" id="rRef" type="button" aria-label="Aktualisieren">${ICON.refresh}</button><button class="ic" id="rProf" type="button" aria-label="Suchprofil">${ICON.user}</button>` });
   setFab(null);
   view.innerHTML = `${largeTitle('Radar')}<div class="stack"><div class="skel" style="height:120px"></div><div class="skel" style="height:120px"></div></div>`;
-  const { updated, list, offline } = await loadRadar();
+  const { updated, list, offline, feedbackStand } = await loadRadar();
+  resendFeedback(feedbackStand);
   const fresh = new Set(newOnes(list).map(c => c.id));
   let tab = fresh.size ? 'neu' : 'alle';
   const sub = updated ? `Zuletzt gesucht ${esc(new Date(updated).toLocaleString('de-DE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))} Uhr` : offline ? 'Offline' : 'Noch kein Suchlauf';
@@ -88,7 +127,7 @@ export async function radarView(view, { go }) {
     if (tab === 'gemerkt') rows = rows.filter(c => saved.has(c.id));
     rows.sort((a, b) => (fresh.has(b.id) - fresh.has(a.id)) || ((b.match || 0) - (a.match || 0)) || (a.frist || '9').localeCompare(b.frist || '9'));
     $('#rlist', view).innerHTML = rows.length ? rows.map(c => cardHtml(c, { neu: fresh.has(c.id) })).join('') :
-      `<div class="empty">${ICON.search}<b>${tab === 'neu' ? 'Nichts Neues' : tab === 'gemerkt' ? 'Noch nichts gemerkt' : 'Gerade nichts Passendes'}</b>${tab === 'alle' ? 'Das Radar sucht jeden Tag neu. Neue Treffer kommen als Benachrichtigung.' : ''}</div>`;
+      `<div class="empty">${illu(tab === 'gemerkt' ? 'search' : 'radar')}<b>${tab === 'neu' ? 'Nichts Neues' : tab === 'gemerkt' ? 'Noch nichts gemerkt' : 'Gerade nichts Passendes'}</b>${tab === 'alle' ? 'Das Radar sucht jeden Tag neu. Neue Treffer kommen als Benachrichtigung.' : ''}</div>`;
   };
   render();
   ls.set('radar.seen', [...new Set([...ls.get('radar.seen', []), ...list.map(c => c.id)])].slice(-500));

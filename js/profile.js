@@ -1,9 +1,12 @@
 // Profil (bearbeitbar), Einstellungen und Abgleich mit dem Casting-Radar
 import { db, ls } from './db.js';
-import { $, $$, esc, ICON, setTop, setFab, largeTitle, toast, buzz, openSheet, closeSheet, fmtDate, safeUrl } from './ui.js';
+import { $, $$, esc, ICON, setTop, setFab, largeTitle, toast, buzz, openSheet, closeSheet, fmtDate, safeUrl, ask } from './ui.js';
 import { tts, srAvailable } from './speech.js';
 import { SOURCES, defaults as voiceDefaults, setDefaults as setVoiceDefaults, eleven } from './voices.js';
 import { defaultOpts } from './rehearse.js';
+import { remindCfg, setRemindCfg, scheduleReminders } from './learn.js';
+import { lastBackup, makeBackup, saveBackup, readBackup, summary, applyBackup } from './backup.js';
+import { pattern as takePattern, takeName, PATTERN_DEFAULT } from './takes.js';
 
 // Start-Profil aus Marcels Website (öffentliche Angaben)
 const BASE = {
@@ -201,6 +204,8 @@ export async function settingsView(view, { go }) {
   try { est = await navigator.storage?.estimate?.(); } catch {}
   const persisted = await navigator.storage?.persisted?.().catch(() => false);
   const dv = tts.germanVoices();
+  const rc = remindCfg();
+  const lb = await lastBackup();
   view.innerHTML = `
    <div class="sec" style="margin-top:8px"><div class="sec-h"><h2>Partnerstimme</h2></div>
     <div class="card pad stack">
@@ -227,6 +232,29 @@ export async function settingsView(view, { go }) {
     <div class="card pad stack">
      ${t ? `<p>Verbunden. Neue Castings kommen über die App <b>ntfy</b>.</p><div class="grid2"><button class="btn tonal" id="sTest" type="button">${ICON.bell} Test senden</button><button class="btn out" id="sSync" type="button">Profil senden</button></div>`
        : '<p>Noch nicht verbunden. Öffne einmal den Verbindungs-Link, den du von Claude bekommen hast.</p>'}
+    </div>
+   </div>
+   <div class="sec"><div class="sec-h"><h2>Erinnerungen</h2></div>
+    <div class="list">
+     <div class="set"><div class="li-main"><b>Täglich proben</b><small>Kurze Nachricht über ntfy, welche Szene noch nicht sitzt</small></div><label class="switch"><input type="checkbox" id="rOn"${rc.on ? ' checked' : ''}${t ? '' : ' disabled'} aria-label="Täglich ans Proben erinnern"><i></i></label></div>
+     <div class="set"><div class="li-main"><b>Uhrzeit</b></div><input class="inp" id="rTime" type="time" value="${esc(rc.time)}" style="width:auto;min-height:44px;padding:8px"></div>
+     <div class="set"><div class="li-main"><b>Vor Live-Castings und Callbacks</b><small>Am Abend vorher um 18 Uhr</small></div><label class="switch"><input type="checkbox" id="rCast"${rc.castings ? ' checked' : ''}${t ? '' : ' disabled'} aria-label="Vor Castings erinnern"><i></i></label></div>
+    </div>
+    ${t ? '' : '<p class="muted small" style="padding:8px 4px 0">Erinnerungen kommen über ntfy. Verbinde dafür zuerst die Benachrichtigungen.</p>'}
+   </div>
+   <div class="sec"><div class="sec-h"><h2>Self-Tape-Dateiname</h2></div>
+    <div class="card pad stack">
+     <div class="field"><label for="tpPat">Muster</label><input class="inp" id="tpPat" value="${esc(takePattern())}" spellcheck="false"></div>
+     <p class="muted small">Bausteine: {Name} {Vorname} {Nachname} {Rolle} {Projekt} {Nr} {Datum}. Beispiel: <b id="tpEx"></b></p>
+    </div>
+   </div>
+   <div class="sec"><div class="sec-h"><h2>Sicherung</h2></div>
+    <div class="card pad stack">
+     <p>${lb ? 'Letzte Sicherung: ' + esc(new Date(lb).toLocaleString('de-DE', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })) + ' Uhr' : 'Noch keine Sicherung.'}</p>
+     <p class="muted small">Sichert Skripte, Tagebuch, Profil, Foto, Stimmen und Einstellungen in eine Datei. Speicher sie in Google Drive, dann kannst du alles auch auf einem neuen Handy wiederholen. Dein ElevenLabs-Schlüssel kommt nicht mit hinein.</p>
+     <div class="set" style="padding:0"><div class="li-main"><b>Videos (Takes) mitsichern</b><small>Macht die Datei deutlich größer</small></div><label class="switch"><input type="checkbox" id="bkTakes" aria-label="Takes mitsichern"><i></i></label></div>
+     <div class="grid2"><button class="btn fill" id="bkShare" type="button">${ICON.share} In Drive sichern</button><button class="btn out" id="bkDl" type="button">${ICON.dl} Als Datei</button></div>
+     <button class="btn text" id="bkLoad" type="button">Sicherung laden</button>
     </div>
    </div>
    <div class="sec"><div class="sec-h"><h2>Speicher</h2></div>
@@ -264,5 +292,39 @@ export async function settingsView(view, { go }) {
     catch { toast('Senden fehlgeschlagen. Bist du online?'); }
   });
   $('#sSync', view)?.addEventListener('click', async () => toast(await syncRadar(null, true) ? 'Profil ans Radar gesendet' : 'Senden fehlgeschlagen'));
+  // Erinnerungen
+  const saveRemind = () => { setRemindCfg({ on: $('#rOn', view).checked, castings: $('#rCast', view).checked, time: $('#rTime', view).value || '19:00' }); scheduleReminders(); toast('Gespeichert'); };
+  ['rOn', 'rCast', 'rTime'].forEach(id => $('#' + id, view).addEventListener('change', saveRemind));
+  // Dateiname
+  const ex = async () => { $('#tpEx', view).textContent = await takeName({ n: 1, type: 'video/mp4', created: new Date().toISOString() }, { title: 'Halbmond 103', me: ['LUKE'] }); };
+  $('#tpPat', view).addEventListener('input', e => { ls.set('take.pattern', e.target.value.trim() || PATTERN_DEFAULT); ex(); });
+  ex();
+  // Sicherung
+  const doBackup = async how => {
+    const btns = ['#bkShare', '#bkDl'].map(s => $(s, view)); btns.forEach(b => b.disabled = true);
+    toast('Sicherung wird erstellt …');
+    try {
+      const f = await makeBackup({ withTakes: $('#bkTakes', view).checked });
+      const r = await saveBackup(f, how);
+      if (r !== 'cancel') { toast(`Gesichert (${(f.size / 1048576).toFixed(1)} MB)`); go('einstellungen', true); }
+    } catch (e) { console.error(e); toast('Sicherung fehlgeschlagen.'); }
+    btns.forEach(b => b.disabled = false);
+  };
+  $('#bkShare', view).onclick = () => doBackup('share');
+  $('#bkDl', view).onclick = () => doBackup('download');
+  $('#bkLoad', view).onclick = () => $('#backupInput').click();
+  $('#backupInput').onchange = async e => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    try {
+      const b = await readBackup(f);
+      const s = summary(b.data);
+      const ok = await ask('Sicherung laden?', `Vom ${new Date(b.head.created).toLocaleDateString('de-DE')}: ${s.scripts} Skripte, ${s.auditions} Castings, ${s.takes} Takes. Gleiche Einträge werden überschrieben, alles andere bleibt.`, 'Laden');
+      if (!ok) return;
+      toast('Wird geladen …');
+      await applyBackup(b);
+      toast('Sicherung geladen'); go('start', true);
+    } catch (err) { toast(err.message || 'Die Datei konnte nicht gelesen werden.'); }
+  };
   $('#sPersist', view)?.addEventListener('click', async () => { const ok = await navigator.storage?.persist?.(); toast(ok ? 'Geschützt' : 'Android hat abgelehnt. Installiere die App auf dem Startbildschirm und versuch es nochmal.'); go('einstellungen', true); });
 }

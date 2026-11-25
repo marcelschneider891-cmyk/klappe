@@ -3,7 +3,22 @@
 
 const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 let pdfjsP = null;
-function loadPdfJs() {
+// PDF-Seiten als Bilder (für die Texterkennung bei Scans)
+export async function pdfToCanvases(buf, scale = 2) {
+  const pdfjs = await loadPdfJs();
+  const doc = await pdfjs.getDocument({ data: buf }).promise;
+  const out = [];
+  for (let p = 1; p <= Math.min(doc.numPages, 15); p++) {
+    const page = await doc.getPage(p);
+    const vp = page.getViewport({ scale });
+    const c = document.createElement('canvas');
+    c.width = vp.width; c.height = vp.height;
+    await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+    out.push(c);
+  }
+  return out;
+}
+export function loadPdfJs() {
   if (pdfjsP) return pdfjsP;
   pdfjsP = new Promise((resolve, reject) => {
     const s = document.createElement('script');

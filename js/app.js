@@ -3,11 +3,15 @@ import { db, uid, ls } from './db.js';
 import { $, $$, esc, ICON, openSheet, closeSheet, toast, ask, fmtDate, setTop, setFab, largeTitle, daysUntil, relDays, buzz } from './ui.js';
 import { pdfToLines, textToLines, parseLines } from './parser.js';
 import { rehearseView } from './rehearse.js';
-import { tapeView, reviewTake, downloadTake, shareTake } from './tape.js';
+import { tapeView, reviewTake } from './tape.js';
+import { downloadTake, shareTake, trimSheet, toggleFav, compareSheet } from './takes.js';
 import { castingsView, loadAuditions, stats, statsHtml, auditionRow, auditionSheet } from './castings.js';
 import { radarView, loadRadar, newOnes, updateBadge, miniHtml } from './radar.js';
 import { profileView, profileEdit, settingsView, getProfile, getPhotoUrl, initials, captureSetupLink, syncRadar } from './profile.js';
 import { openVoiceSheet, voiceLabel } from './voicesheet.js';
+import { mastery, masteryLabel, scheduleReminders } from './learn.js';
+import { lastBackup, hasData } from './backup.js';
+import { illu, splash, swipeList } from './fx.js';
 
 const view = $('#view');
 let cleanup = null;
@@ -77,15 +81,18 @@ async function startView() {
   const first = (profile.name || '').split(' ')[0];
   const recent = auditions.slice(0, 3);
 
+  const lb = await lastBackup();
+  const needBackup = (scripts.length + auditions.length > 0) && Date.now() - lb > 14 * 86400e3;
   view.innerHTML = `${largeTitle('Heute', esc(new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })) + (first ? ` · Hallo ${esc(first)}` : ''))}
+   ${needBackup ? `<a class="banner" href="#einstellungen"><span class="tile">${ICON.dl}</span><span class="li-main"><b>${lb ? 'Zeit für eine neue Sicherung' : 'Mach deine erste Sicherung'}</b><small>${lb ? 'Letzte Sicherung am ' + esc(fmtDate(new Date(lb).toISOString())) : 'Damit nichts verloren geht, falls dem Handy etwas passiert'}</small></span></a>` : ''}
    ${due ? `<a class="due" href="#radar" data-open="${esc(due.id)}"><span class="tile">${ICON.clock}</span><span class="li-main"><b>${esc(due.titel)}</b><small>Frist ${esc(relDays(due.frist))}</small></span></a>` : ''}
    <section class="sec"><div class="sec-h"><h2>Neu im Radar${fresh.length ? ` · ${fresh.length}` : ''}</h2><a href="#radar">Alle</a></div>
     ${teaser.length ? `<div class="hscroll" id="teaser">${teaser.map(c => miniHtml(c, freshIds.has(c.id))).join('')}</div>`
-      : `<div class="empty">${ICON.search}<b>Noch nichts Passendes</b>${radar.offline ? 'Du bist offline.' : 'Das Radar sucht jeden Tag neu.'}</div>`}
+      : `<div class="empty">${illu('radar')}<b>Noch nichts Passendes</b>${radar.offline ? 'Du bist offline.' : 'Das Radar sucht jeden Tag neu.'}</div>`}
    </section>
    <section class="sec"><div class="sec-h"><h2>Weiter proben</h2>${scripts.length ? '<a href="#skripte">Alle</a>' : ''}</div>
     ${scripts.length ? `<div class="list">${scripts.slice(0, 3).map(scriptRow).join('')}</div>`
-      : `<button class="empty" id="demoBtn" type="button">${ICON.doc}<b>Probier die Demo-Szene</b>„Nachtschicht“, zwei Figuren, eine Tankstelle um drei Uhr nachts.</button>`}
+      : `<button class="empty" id="demoBtn" type="button">${illu('script')}<b>Probier die Demo-Szene</b>„Nachtschicht“, zwei Figuren, eine Tankstelle um drei Uhr nachts.</button>`}
    </section>
    <section class="sec"><div class="sec-h"><h2>Castings</h2><a href="#castings">Tagebuch</a></div>
     ${statsHtml(stats(auditions))}
@@ -104,7 +111,7 @@ function thumb(s) {
 }
 function scriptRow(s) {
   const n = s.blocks.filter(b => b.type === 'line' && s.me?.includes(b.who)).length;
-  return `<a class="li" href="#skript-${esc(s.id)}"><span class="thumb page-p" aria-hidden="true">${thumb(s)}</span><span class="li-main"><b>${esc(s.title)}</b><small>${s.me?.length ? `${esc(s.me.join(', '))} · ${n} Sätze` : 'Rolle wählen'}</small></span>${ICON.chev}</a>`;
+  return `<a class="li" href="#skript-${esc(s.id)}"><span class="thumb page-p" aria-hidden="true">${thumb(s)}</span><span class="li-main"><b>${esc(s.title)}</b><small>${s.me?.length ? `${esc(s.me.join(', '))} · ${esc(masteryLabel(s))}` : 'Rolle wählen'}</small></span>${ICON.chev}</a>`;
 }
 
 // ---------- Skripte ----------
@@ -115,9 +122,9 @@ async function scriptsView() {
   view.innerHTML = `${largeTitle('Skripte', scripts.length ? `${scripts.length} ${scripts.length === 1 ? 'Szene' : 'Szenen'}` : '')}
    ${scripts.length ? `<div class="pages">${scripts.map(s => {
       const n = s.blocks.filter(b => b.type === 'line' && s.me?.includes(b.who)).length;
-      return `<a class="page" href="#skript-${esc(s.id)}"><div class="page-p" aria-hidden="true">${thumb(s)}</div><b>${esc(s.title)}</b><small>${s.me?.length ? `${n} Sätze für dich` : 'Rolle wählen'}</small></a>`;
+      return `<a class="page" href="#skript-${esc(s.id)}"><div class="page-p" aria-hidden="true">${thumb(s)}</div><b>${esc(s.title)}</b><small>${s.me?.length ? esc(masteryLabel(s)) : 'Rolle wählen'}</small></a>`;
     }).join('')}</div>`
-    : `<button class="empty" id="demoBtn" type="button">${ICON.doc}<b>Noch keine Szene</b>Lade dein PDF über „Importieren“ oder probier die Demo-Szene.</button>
+    : `<button class="empty" id="demoBtn" type="button">${illu('script')}<b>Noch keine Szene</b>Lade dein PDF über „Importieren“ oder probier die Demo-Szene.</button>
        <p class="muted small" style="padding:16px 4px">Sides aus der Mail: in Gmail aufs PDF tippen, dann Teilen und Klappe wählen.</p>`}`;
   $('#demoBtn', view)?.addEventListener('click', loadDemo);
 }
@@ -126,15 +133,42 @@ function importSheet() {
   openSheet('Skript importieren', `
    <div class="list">
     <button class="li" id="iPdf" type="button"><span class="tile">${ICON.upload}</span><span class="li-main"><b>PDF wählen</b><small>Sides vom Handy</small></span></button>
+    <button class="li" id="iCam" type="button"><span class="tile">${ICON.cam}</span><span class="li-main"><b>Seiten fotografieren</b><small>Ausgedruckte Sides oder Scan, Text wird erkannt</small></span></button>
     <button class="li" id="iTxt" type="button"><span class="tile">${ICON.edit}</span><span class="li-main"><b>Text einfügen</b><small>Aus einer Mail oder Notiz</small></span></button>
     <button class="li" id="iDemo" type="button"><span class="tile">${ICON.doc}</span><span class="li-main"><b>Demo-Szene</b><small>„Nachtschicht“ zum Ausprobieren</small></span></button>
    </div>
    <p class="muted small">Direkt aus Gmail: PDF öffnen, Teilen, Klappe. Klappt, sobald die App installiert ist.</p>`, body => {
     $('#iPdf', body).onclick = () => { closeSheet(); $('#pdfInput').click(); };
+    $('#iCam', body).onclick = () => { closeSheet(); $('#camInput').click(); };
     $('#iTxt', body).onclick = pasteSheet;
     $('#iDemo', body).onclick = () => { closeSheet(); loadDemo(); };
   });
 }
+
+// Texterkennung mit Fortschritt
+async function runOcr(images, title) {
+  openSheet('Text wird erkannt', `<p class="muted" id="ocrMsg">Texterkennung wird geladen. Beim ersten Mal lädt die App dafür etwa 15 MB.</p><div class="progress"><i id="ocrBar"></i></div><p class="muted small">Das passiert komplett auf deinem Handy.</p>`);
+  try {
+    const { ocrToLines } = await import('./ocr.js');
+    const lines = await ocrToLines(images, (p, msg) => { const b = $('#ocrBar'); if (b) b.style.width = Math.round(p * 100) + '%'; const m = $('#ocrMsg'); if (m && msg) m.textContent = msg; });
+    closeSheet();
+    const parsed = parseLines(lines, title);
+    // Erkannten Text immer kurz prüfen lassen: Texterkennung ist nie perfekt
+    pasteSheet();
+    $('#pT').value = title;
+    $('#pX').value = parsed.characters.length
+      ? parsed.blocks.map(b => b.type === 'act' ? b.text : `${b.who}\n${b.text}`).join('\n\n')
+      : lines.map(l => (l.gap ? '\n' : '') + l.t).join('\n').trim();
+    toast(parsed.characters.length ? `${parsed.characters.length} Figuren erkannt. Kurz prüfen, dann anlegen.` : 'Text erkannt. Bitte Namen prüfen.');
+  } catch (err) {
+    closeSheet();
+    toast(err.message === 'offline' ? 'Für die erste Texterkennung braucht die App Internet.' : 'Texterkennung hat nicht geklappt.');
+  }
+}
+$('#camInput').addEventListener('change', async e => {
+  const files = [...e.target.files]; e.target.value = '';
+  if (files.length) runOcr(files, 'Neue Szene');
+});
 
 function pasteSheet() {
   openSheet('Text einfügen', `
@@ -156,7 +190,8 @@ function pasteSheet() {
 $('#pdfInput').addEventListener('change', async e => { const f = e.target.files[0]; e.target.value = ''; if (f) await importFile(f); });
 
 async function importFile(f) {
-  const title = f.name.replace(/\.(pdf|txt)$/i, '').replace(/[_]+/g, ' ').trim() || 'Neue Szene';
+  const title = f.name.replace(/\.(pdf|txt|jpe?g|png|webp|heic)$/i, '').replace(/[_]+/g, ' ').trim() || 'Neue Szene';
+  if (/^image\//.test(f.type)) return runOcr([f], title);
   toast('Skript wird gelesen …');
   try {
     const lines = /pdf/i.test(f.type) || /\.pdf$/i.test(f.name) ? await pdfToLines(await f.arrayBuffer()) : textToLines(await f.text());
@@ -170,7 +205,10 @@ async function importFile(f) {
     }
     await saveScript(parsed, 'pdf');
   } catch (err) {
-    if (err.code === 'scan') openSheet('PDF ist ein Scan', '<p class="muted">In diesem PDF steckt nur ein Bild, kein Text. Nimm das Original-PDF aus der Mail oder füge den Text ein.</p><button class="btn fill wide" type="button" data-close>OK</button>');
+    if (err.code === 'scan') {
+      try { const { pdfToCanvases } = await import('./parser.js'); runOcr(await pdfToCanvases(await f.arrayBuffer()), title); }
+      catch { toast('Das PDF konnte nicht gelesen werden.'); }
+    }
     else if (err.message === 'offline') toast('Für den ersten PDF-Import braucht die App einmal Internet.');
     else { console.error(err); toast('Das PDF konnte nicht gelesen werden.'); }
   }
@@ -203,15 +241,16 @@ async function scriptView(id) {
   if (!s) return go('skripte', true);
   s.me = s.me || [];
   setTop({ title: s.title, back: true, actions: `<button class="ic" id="sVoice" type="button" aria-label="Partnerstimme">${ICON.voice}</button><button class="ic" id="sMenu" type="button" aria-label="Mehr">${ICON.more}</button>` });
-  const takes = (await db.all('takes')).filter(t => t.scriptId === id).sort((a, b) => b.created.localeCompare(a.created));
+  const takes = (await db.all('takes')).filter(t => t.scriptId === id).sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0) || b.created.localeCompare(a.created));
   const cnt = c => s.blocks.filter(b => b.type === 'line' && b.who === c).length;
   view.innerHTML = `
    <div class="sec" style="margin-top:4px">
     <div class="sec-h"><h2>Deine Rolle</h2></div>
     <div class="chips" id="roles" style="flex-wrap:wrap;margin:0;padding:0">${s.characters.map(c => `<button class="chip${s.me.includes(c) ? ' on' : ''}" data-c="${esc(c)}" type="button">${esc(c)} · ${cnt(c)}</button>`).join('')}</div>
    </div>
+   ${s.me.length ? `<div class="card pad sec stack" style="gap:8px"><div class="row" style="justify-content:space-between"><b>Text sitzt zu ${mastery(s) ?? 0} %</b><span class="muted small">${s.practiced ? 'geübt ' + esc(fmtDate(s.practiced)) : 'noch nicht geübt'}</span></div><div class="progress"><i style="width:${mastery(s) ?? 0}%"></i></div><p class="muted small">Beim Proben mit dem Auge den Text ausblenden. Jeder Satz, den du ohne „Line!“ schaffst, zählt.</p></div>` : ''}
    <div class="list sec"><button class="li" id="sVoice2" type="button"><span class="tile">${ICON.voice}</span><span class="li-main"><b>Partnerstimme</b><small>${esc(voiceLabel(s))}</small></span>${ICON.chev}</button></div>
-   ${takes.length ? `<div class="sec"><div class="sec-h"><h2>Takes</h2></div><div class="takes">${takes.map(t => `<button class="take" type="button" data-t="${esc(t.id)}"><video muted playsinline preload="metadata"></video><b>Take ${t.n}</b><small>${esc(fmtDate(t.created))} · ${t.dur} s</small></button>`).join('')}</div></div>` : ''}
+   ${takes.length ? `<div class="sec"><div class="sec-h"><h2>Takes</h2>${takes.length > 1 ? '<button type="button" id="cmp">Vergleichen</button>' : ''}</div><div class="takes">${takes.map(t => `<button class="take" type="button" data-t="${esc(t.id)}"><video muted playsinline preload="metadata"></video><b>Take ${t.n}${t.fav ? ' ★' : ''}</b><small>${esc(fmtDate(t.created))} · ${t.dur} s</small></button>`).join('')}</div></div>` : ''}
    <div class="sec"><div class="sec-h"><h2>Skript</h2><span class="muted small">Zeile antippen zum Korrigieren</span></div>
     <div class="script" id="paper">${s.blocks.map((b, i) => b.type === 'act'
       ? `<p class="act" data-edit="${i}">${esc(b.text)}</p>`
@@ -231,6 +270,7 @@ async function scriptView(id) {
     el.onclick = () => takeSheet(t, s);
   });
   cleanup = () => urls.forEach(u => URL.revokeObjectURL(u));
+  $('#cmp', view)?.addEventListener('click', () => compareSheet(takes, s));
 
   const gate = e => { if (!s.me.length) { e.preventDefault(); toast('Wähle zuerst deine Rolle.'); } else { s.used = new Date().toISOString(); db.put('scripts', s); } };
   $('#goR', view).onclick = gate;
@@ -265,6 +305,8 @@ function takeSheet(t, s) {
   openSheet(`Take ${t.n}`, `
    <div class="list">
     <button class="li" data-a="play" type="button"><span class="tile">${ICON.play}</span><span class="li-main"><b>Ansehen</b></span></button>
+    <button class="li" data-a="trim" type="button"><span class="tile">${ICON.edit}</span><span class="li-main"><b>Zuschneiden</b><small>Anfang und Ende kürzen</small></span></button>
+    <button class="li" data-a="fav" type="button"><span class="tile">${t.fav ? ICON.starOn : ICON.star}</span><span class="li-main"><b>${t.fav ? 'Kein Favorit mehr' : 'Als Favorit markieren'}</b></span></button>
     <button class="li" data-a="share" type="button"><span class="tile">${ICON.share}</span><span class="li-main"><b>Teilen</b><small>An Agentur, WhatsApp, Drive …</small></span></button>
     <button class="li" data-a="dl" type="button"><span class="tile">${ICON.dl}</span><span class="li-main"><b>Auf dem Handy speichern</b></span></button>
     <button class="li" data-a="del" type="button"><span class="tile" style="color:var(--bad)">${ICON.trash}</span><span class="li-main"><b>Löschen</b></span></button>
@@ -272,8 +314,10 @@ function takeSheet(t, s) {
     body.onclick = async e => {
       const a = e.target.closest('[data-a]')?.dataset.a; if (!a) return;
       if (a === 'play') reviewTake(t, s);
-      else if (a === 'share') shareTake(t, s.title);
-      else if (a === 'dl') downloadTake(t, s.title);
+      else if (a === 'share') shareTake(t, s);
+      else if (a === 'dl') downloadTake(t, s);
+      else if (a === 'trim') trimSheet(t, s, () => go('skript-' + s.id, true));
+      else if (a === 'fav') { await toggleFav(t); closeSheet(); go('skript-' + s.id, true); }
       else if (await ask('Take löschen?', `Take ${t.n} wird aus der App gelöscht. Gespeicherte Kopien bleiben.`)) { await db.del('takes', t.id); go('skript-' + s.id, true); }
     };
   });
@@ -378,7 +422,9 @@ async function loadDemo() {
 // ---------- Start ----------
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 captureSetupLink();
+splash();
 render().finally(() => { window.__klappeOk = true; document.getElementById('rescue')?.remove(); });
+setTimeout(() => scheduleReminders().catch(() => {}), 3000);
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState !== 'visible') return;
   const { list } = await loadRadar();

@@ -6,15 +6,26 @@ export function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 export function safeUrl(u) { return /^https:\/\//i.test(u || '') ? u : null; }
-export const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch {} };
+export const buzz = (ms = 8) => { try { if (navigator.userActivation?.hasBeenActive !== false) navigator.vibrate?.(ms); } catch {} };
 
 let tt = null;
 export function toast(msg) {
   const t = $('#toast');
   t.textContent = msg;
+  t.classList.remove('act');
   t.classList.add('on');
   clearTimeout(tt);
   tt = setTimeout(() => t.classList.remove('on'), 2800);
+}
+
+export function undoToast(msg, onUndo) {
+  const t = $('#toast');
+  t.innerHTML = `<span>${esc(msg)}</span><button type="button">Rückgängig</button>`;
+  t.classList.add('on', 'act');
+  const b = t.querySelector('button');
+  b.onclick = () => { clearTimeout(tt); t.classList.remove('on', 'act'); onUndo(); };
+  clearTimeout(tt);
+  tt = setTimeout(() => t.classList.remove('on', 'act'), 5000);
 }
 
 let sheetClose = null;

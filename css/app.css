@@ -346,3 +346,45 @@ input[type=range]{width:100%;accent-color:var(--primary)}
 .progress{height:4px;border-radius:2px;background:var(--s3);overflow:hidden}
 .progress i{display:block;height:100%;background:var(--primary);width:0;transition:width .2s}
 .legal{font-size:.78rem;color:var(--on-3);text-align:center;padding-top:8px}
+
+/* ---------- Kalender ---------- */
+.cal{background:var(--s1);border-radius:16px;padding:8px 8px 12px}
+.cal-h{display:flex;align-items:center;justify-content:space-between;padding:0 4px}
+.cal-h b{font:600 1rem var(--f)}
+.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-g .wd{text-align:center;font:500 .72rem var(--f);color:var(--on-3);padding:6px 0}
+.cd{aspect-ratio:1;max-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;border-radius:50%;background:none;color:var(--on);font:500 .9rem var(--f);cursor:pointer;position:relative}
+.cd.out{color:var(--on-3)}
+.cd.today span{color:var(--primary);font-weight:700}
+.cd.sel{background:var(--pc);color:var(--on-pc)}
+.cd i{display:flex;gap:2px;height:5px}
+.cd i b{width:5px;height:5px;border-radius:50%;background:var(--on-2)}
+.dot-f{background:var(--warn)!important}.dot-gebucht{background:var(--ok)!important}.dot-callback,.dot-halten{background:var(--primary)!important}.dot-eingereicht{background:var(--info)!important}.dot-abgesagt{background:var(--bad)!important}
+
+/* ---------- Wischen ---------- */
+.list .li[data-id]{touch-action:pan-y;background:var(--s1)}
+.li.swiping[data-dir="r"]{box-shadow:inset 6px 0 0 var(--primary)}
+.li.swiping[data-dir="l"]{box-shadow:inset -6px 0 0 var(--bad)}
+.li.armed[data-dir="r"]{background:var(--pc)}
+.li.armed[data-dir="l"]{background:var(--bad-c)}
+
+/* ---------- Snackbar mit Aktion ---------- */
+.snack.act{display:flex;align-items:center;justify-content:space-between;gap:12px;pointer-events:auto}
+.snack button{border:0;background:none;color:#7A5A1E;font:700 .9rem var(--f);padding:4px 0;cursor:pointer}
+
+/* ---------- Start-Animation ---------- */
+.splash{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:var(--bg);transition:opacity .3s}
+.splash.out{opacity:0}
+.splash svg{width:140px;height:120px}
+.splash .arm{transform-origin:14px 46px;animation:clap .42s cubic-bezier(.6,0,.9,.4) .05s both}
+@keyframes clap{from{transform:rotate(-24deg)}to{transform:rotate(0)}}
+
+/* ---------- Bilder für leere Seiten ---------- */
+.illu{width:120px;height:100px;margin-bottom:4px;fill:none;stroke:var(--on-3);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.illu .hl{stroke:var(--primary)}
+.illu .back{stroke:var(--outline-2)}
+.empty .illu{width:120px;height:100px}
+.banner{display:flex;gap:14px;align-items:center;padding:14px 16px;border-radius:16px;background:var(--info-c);color:var(--info);margin-bottom:12px}
+.banner .tile{background:rgba(148,182,221,.16);color:var(--info)}
+.banner b{display:block;color:var(--on);font-weight:600}
+.banner small{color:var(--info)}

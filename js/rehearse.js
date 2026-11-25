@@ -6,11 +6,7 @@ import { ls } from './db.js';
 import { Reader } from './voices.js';
 import { openVoiceSheet, voiceLabel } from './voicesheet.js';
 
-const HIDE = [
-  { k: 'zeigen', l: 'Text zeigen' },
-  { k: 'anfang', l: 'Nur Anfangsbuchstaben' },
-  { k: 'aus', l: 'Meinen Text verstecken' }
-];
+import { MODES as HIDE, display, record, mastery } from './learn.js';
 
 export function defaultOpts() {
   return Object.assign({ listen: srAvailable ? 'sr' : 'vad', hide: 'zeigen', rate: 1, pause: 1000, readActions: false, cueGap: 150 }, ls.get('rehearse.opts', {}));
@@ -49,8 +45,9 @@ export async function rehearseView(view, script, { exit }) {
     $$('.rl.me', view).forEach(el => {
       const b = script.blocks[+el.dataset.i];
       const passed = el.classList.contains('done');
-      el.classList.toggle('hide', opts.hide === 'aus' && !passed && !el.dataset.revealed);
-      $('.x', el).textContent = opts.hide === 'anfang' && !passed && !el.dataset.revealed ? initials(b.text) : b.text;
+      const open = passed || el.dataset.revealed;
+      el.classList.toggle('hide', opts.hide === 'aus' && !open);
+      $('.x', el).textContent = open ? b.text.replace(/^\([^)]*\)\s*/, '') : display(b.text.replace(/^\([^)]*\)\s*/, ''), opts.hide);
     });
   };
 
@@ -75,7 +72,7 @@ export async function rehearseView(view, script, { exit }) {
         opts.listen === 'vad' ? 'Du bist dran. Wenn du eine Pause machst, geht es weiter. <span class="lvl"><i id="lvl"></i></span>' :
         opts.listen === 'auto' ? 'Du bist dran.' : 'Du bist dran. Tippe auf Weiter, wenn du fertig bist.';
       else if (s === 'pause') state.textContent = 'Pausiert.';
-      else if (s === 'end') { state.textContent = 'Szene durch. Nochmal?'; lineBtn.hidden = true; releaseWake(); }
+      else if (s === 'end') { const m = mastery(script); state.textContent = opts.hide === 'zeigen' ? 'Szene durch. Für den Lernfortschritt den Text ausblenden (Auge).' : `Szene durch. Dein Text sitzt zu ${m ?? 0} %.`; lineBtn.hidden = true; releaseWake(); }
       else if (s === 'nomic') { state.textContent = 'Kein Mikro-Zugriff. Ich warte jetzt auf deinen Tipp auf Weiter.'; opts.listen = 'tap'; }
     },
     onFeed(text) {
@@ -85,6 +82,11 @@ export async function rehearseView(view, script, { exit }) {
       if (!f) { f = document.createElement('span'); f.className = 'feed'; cur.appendChild(f); }
       f.textContent = text;
       if (opts.hide !== 'zeigen') { cur.dataset.revealed = '1'; applyHide(); }
+    },
+    onMyDone(i, { fed }) {
+      const el = $(`.rl[data-i="${i}"]`, view);
+      const clean = !fed && !el?.dataset.revealed;
+      record(script, script.blocks[i].id, clean, opts.hide);
     },
     onHeard(pos, len) { state.textContent = `Gehört: ${pos} von ${len} Wörtern. Hänger? Sag „Line!“`; },
     onFinish() {}

@@ -74,11 +74,13 @@ export class Runner {
   waitForMe(b, tok) {
     this.feedPos = 0;
     this.heardPos = 0;
+    this.fedThis = false;
     const lw = words(b.text);
     return new Promise(resolve => {
       let settled = false, quiet = null, lineCalls = 0;
-      const done = () => {
+      const done = (aborted = false) => {
         if (settled) return; settled = true;
+        if (!aborted) this.h.onMyDone?.(this.idx, { fed: this.fedThis });
         clearTimeout(quiet); this._resolveMe = null;
         if (this.rec) this.rec.stop();
         this.vad?.disarm();
@@ -122,6 +124,7 @@ export class Runner {
     if (from >= lw.length) return;
     const chunk = lw.slice(from, from + 4).join(' ');
     this.feedPos = from + 4;
+    this.fedThis = true;
     this.h.onFeed(chunk + (this.feedPos < lw.length ? ' …' : ''));
     if (this.quietFeed) return;
     const wasArmed = this.opts.listen === 'vad' && this.vad;
@@ -155,7 +158,7 @@ export class Runner {
     this.reader?.cancel();
     tts.cancel();
     this.h.onPartner?.(false);
-    if (this._resolveMe) { const r = this._resolveMe; this._resolveMe = null; r(); }
+    if (this._resolveMe) { const r = this._resolveMe; this._resolveMe = null; r(true); }
     if (this.rec) this.rec.stop();
     this.vad?.disarm();
   }
