@@ -5,6 +5,7 @@ import { tts, srAvailable } from './speech.js';
 import { SOURCES, defaults as voiceDefaults, setDefaults as setVoiceDefaults, eleven } from './voices.js';
 import { defaultOpts } from './rehearse.js';
 import { remindCfg, setRemindCfg, scheduleReminders } from './learn.js';
+import { syncSection } from './syncui.js';
 import { lastBackup, makeBackup, saveBackup, readBackup, summary, applyBackup } from './backup.js';
 import { pattern as takePattern, takeName, PATTERN_DEFAULT } from './takes.js';
 
@@ -261,6 +262,7 @@ export async function settingsView(view, { go }) {
      <p class="muted small">Bausteine: {Name} {Vorname} {Nachname} {Rolle} {Projekt} {Nr} {Datum}. Beispiel: <b id="tpEx"></b></p>
     </div>
    </div>
+   <div class="sec"><div class="sec-h"><h2>Abgleich Handy ↔ PC</h2></div><div id="syncBox"></div></div>
    <div class="sec"><div class="sec-h"><h2>Sicherung</h2></div>
     <div class="card pad stack">
      <p>${lb ? 'Letzte Sicherung: ' + esc(new Date(lb).toLocaleString('de-DE', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })) + ' Uhr' : 'Noch keine Sicherung.'}</p>
@@ -305,6 +307,9 @@ export async function settingsView(view, { go }) {
     catch { toast('Senden fehlgeschlagen. Bist du online?'); }
   });
   $('#sSync', view)?.addEventListener('click', async () => toast(await syncRadar(null, true) ? 'Profil ans Radar gesendet' : 'Senden fehlgeschlagen'));
+  // Abgleich
+  const drawSync = () => syncSection($('#syncBox', view), drawSync);
+  drawSync();
   // Erinnerungen
   const saveRemind = () => { setRemindCfg({ on: $('#rOn', view).checked, castings: $('#rCast', view).checked, time: $('#rTime', view).value || '19:00' }); scheduleReminders(); toast('Gespeichert'); };
   ['rOn', 'rCast', 'rTime'].forEach(id => $('#' + id, view).addEventListener('change', saveRemind));

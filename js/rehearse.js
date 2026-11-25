@@ -7,6 +7,7 @@ import { Reader } from './voices.js';
 import { openVoiceSheet, voiceLabel } from './voicesheet.js';
 
 import { MODES as HIDE, display, record, mastery } from './learn.js';
+import { fmtLine, plain } from './role.js';
 
 export function defaultOpts() {
   return Object.assign({ listen: srAvailable ? 'sr' : 'vad', hide: 'zeigen', rate: 1, pause: 1000, readActions: false, cueGap: 150 }, ls.get('rehearse.opts', {}));
@@ -47,7 +48,8 @@ export async function rehearseView(view, script, { exit }) {
       const passed = el.classList.contains('done');
       const open = passed || el.dataset.revealed;
       el.classList.toggle('hide', opts.hide === 'aus' && !open);
-      $('.x', el).textContent = open ? b.text.replace(/^\([^)]*\)\s*/, '') : display(b.text.replace(/^\([^)]*\)\s*/, ''), opts.hide);
+      const raw = b.text.replace(/^\([^)]*\)\s*/, '');
+      if (open) $('.x', el).innerHTML = fmtLine(raw); else $('.x', el).textContent = display(plain(raw), opts.hide);
     });
   };
 
@@ -161,7 +163,7 @@ function lineHtml(b, i, me) {
   const m = b.text.match(/^\(([^)]*)\)\s*/);
   const note = m ? m[1] : '';
   const text = m ? b.text.slice(m[0].length) : b.text;
-  return `<div class="rl${mine ? ' me' : ''}" data-i="${i}"><span class="w">${esc(b.who)}</span>${note ? `<span class="n">(${esc(note)})</span>` : ''}<span class="x">${esc(text)}</span></div>`;
+  return `<div class="rl${mine ? ' me' : ''}" data-i="${i}"><span class="w">${esc(b.who)}</span>${note ? `<span class="n">(${esc(note)})</span>` : ''}<span class="x">${fmtLine(text)}</span>${mine && b.mynote ? `<span class="mn">${esc(b.mynote)}</span>` : ''}</div>`;
 }
 
 export function settingsSheet(opts, onSave, { tape = false } = {}) {

@@ -3,8 +3,14 @@
 // auf die andere warten, falls Klappe noch in einem anderen Tab offen ist.
 const DBS = {
   klappe: ['scripts', 'auditions', 'takes', 'kv'],
-  'klappe-audio': ['audio']
+  'klappe-audio': ['audio'],
+  'klappe-plus': ['gagen'],        // neue Bereiche in eigener Datenbank, damit nie ein Umbau nötig ist
+  'klappe-sync': ['tomb']          // gelöschte Einträge, damit der Abgleich sie auf dem anderen Gerät auch löscht
 };
+// Diese Bereiche werden zwischen Handy und PC abgeglichen
+export const SYNC_STORES = ['scripts', 'auditions', 'gagen', 'kv', 'audio', 'takes'];
+const KV_SYNC = ['profile', 'profilePhoto'];
+const changed = () => window.dispatchEvent(new Event('klappe-changed'));
 const dbOf = store => Object.keys(DBS).find(n => DBS[n].includes(store));
 const cache = {};
 
@@ -55,11 +61,26 @@ function tx(store, mode, fn) {
   }));
 }
 
+const syncs = (store, id) => SYNC_STORES.includes(store) && (store !== 'kv' || KV_SYNC.includes(id));
 export const db = {
   all: store => tx(store, 'readonly', s => s.getAll()),
   get: (store, id) => tx(store, 'readonly', s => s.get(id)),
-  put: (store, obj) => tx(store, 'readwrite', s => s.put(obj)),
-  del: (store, id) => tx(store, 'readwrite', s => s.delete(id)),
+  // Jede Änderung bekommt einen Zeitstempel; der neuere Stand gewinnt beim Abgleich
+  async put(store, obj) {
+    if (syncs(store, obj.id)) obj._u = Date.now();
+    const r = await tx(store, 'readwrite', s => s.put(obj));
+    if (syncs(store, obj.id)) changed();
+    return r;
+  },
+  async del(store, id) {
+    const r = await tx(store, 'readwrite', s => s.delete(id));
+    if (syncs(store, id)) { await tx('tomb', 'readwrite', s => s.put({ id: store + '/' + id, store, rid: id, _u: Date.now() })); changed(); }
+    return r;
+  },
+  // Für den Abgleich: ohne neuen Zeitstempel und ohne Löschvermerk
+  putRaw: (store, obj) => tx(store, 'readwrite', s => s.put(obj)),
+  delRaw: (store, id) => tx(store, 'readwrite', s => s.delete(id)),
+  syncs,
   async kv(key, val) {
     if (val === undefined) { const r = await this.get('kv', key); return r ? r.v : undefined; }
     return this.put('kv', { id: key, v: val });

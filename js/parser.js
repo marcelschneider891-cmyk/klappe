@@ -214,7 +214,7 @@ function join(a, b) {
 
 // Text zum Vorlesen: Regieanweisungen in Klammern weglassen
 export function speakable(t) {
-  return t.replace(/\([^)]*\)/g, ' ').replace(/\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
+  return t.replace(/\*([^*]+)\*/g, '$1').replace(/\s\/\s/g, ' ').replace(/\([^)]*\)/g, ' ').replace(/\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 // Wörter für Abgleich mit Spracherkennung

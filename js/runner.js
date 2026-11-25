@@ -166,7 +166,7 @@ export class Runner {
 }
 
 function speakWords(t) {
-  return t.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(w => /[\p{L}\p{N}]/u.test(w));
+  return t.replace(/\*/g, '').replace(/\s\/\s/g, ' ').replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(w => /[\p{L}\p{N}]/u.test(w));
 }
 
 // Merkhilfe: nur Anfangsbuchstaben zeigen

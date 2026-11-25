@@ -4,6 +4,7 @@ import { $, $$, esc, ICON, openSheet, closeSheet, toast, ask, fmtDate, monthName
 import { events, calendarHtml, dayList, googleLink, exportAll } from './calendar.js';
 import { loadRadar } from './radar.js';
 import { swipeList, illu } from './fx.js';
+import { loadGagen, gagenHtml, wireGagen, gageSheet } from './gagen.js';
 
 export const STATUS = [
   { k: 'eingereicht', l: 'Eingereicht' },
@@ -46,14 +47,18 @@ export async function castingsView(view, { go }) {
   const list = await loadAuditions();
   const years = [...new Set(list.map(a => a.datum?.slice(0, 4)).filter(Boolean))].sort().reverse();
   setTop({ title: 'Castings', large: true, actions: list.length ? `<button class="ic" id="wrapBtn" type="button" aria-label="Jahresrückblick">${ICON.star}</button>` : '' });
-  setFab({ label: 'Eintragen', onClick: () => auditionSheet(null, () => go('castings', true)) });
   let filter = 'alle', q = '', mode = ls.get('castings.mode', 'liste'), month = new Date(), day = today();
-  const radar = await loadRadar();
+  const fab = () => mode === 'gagen'
+    ? setFab({ label: 'Gage eintragen', icon: ICON.euro, onClick: () => gageSheet(null, () => go('castings', true)) })
+    : setFab({ label: 'Eintragen', onClick: () => auditionSheet(null, () => go('castings', true)) });
+  fab();
+  const [radar, gagen] = await Promise.all([loadRadar(), loadGagen()]);
   const ev = events(list, radar.list);
 
   view.innerHTML = `${largeTitle('Castings')}
    ${statsHtml(stats(list))}
-   <div class="seg sec" id="amode"><button type="button" data-k="liste"${mode === 'liste' ? ' class="on"' : ''}>Liste</button><button type="button" data-k="kalender"${mode === 'kalender' ? ' class="on"' : ''}>Kalender</button></div>
+   <div class="seg sec" id="amode"><button type="button" data-k="liste"${mode === 'liste' ? ' class="on"' : ''}>Liste</button><button type="button" data-k="kalender"${mode === 'kalender' ? ' class="on"' : ''}>Kalender</button><button type="button" data-k="gagen"${mode === 'gagen' ? ' class="on"' : ''}>Gagen</button></div>
+   <div class="sec" id="aGageBox"${mode === 'gagen' ? '' : ' hidden'}>${gagenHtml(gagen)}</div>
    <div class="sec" id="aListBox"${mode === 'liste' ? '' : ' hidden'}>
     <label class="search">${ICON.search}<input id="aq" type="search" placeholder="Castings durchsuchen" aria-label="Castings durchsuchen"></label>
     <div class="chips" id="achips" style="margin-top:12px">${[{ k: 'alle', l: 'Alle' }, ...STATUS].map(s => `<button class="chip${s.k === 'alle' ? ' on' : ''}" data-k="${s.k}" type="button">${s.l}</button>`).join('')}</div>
@@ -75,8 +80,10 @@ export async function castingsView(view, { go }) {
     const b = e.target.closest('[data-k]'); if (!b) return;
     mode = b.dataset.k; ls.set('castings.mode', mode);
     $$('#amode button', view).forEach(x => x.classList.toggle('on', x === b));
-    $('#aListBox', view).hidden = mode !== 'liste'; $('#aCalBox', view).hidden = mode !== 'kalender';
+    $('#aListBox', view).hidden = mode !== 'liste'; $('#aCalBox', view).hidden = mode !== 'kalender'; $('#aGageBox', view).hidden = mode !== 'gagen';
+    fab();
   };
+  wireGagen($('#aGageBox', view), gagen, () => go('castings', true));
   $('#acal', view).onclick = e => {
     const m = e.target.closest('[data-m]');
     if (m) { month = new Date(month.getFullYear(), month.getMonth() + +m.dataset.m, 1); drawCal(); return; }
@@ -148,8 +155,10 @@ export function auditionSheet(a, done, preset = {}) {
    <div class="field"><label for="fN">Notizen</label><textarea class="inp" id="fN" style="min-height:96px">${esc(v.notiz)}</textarea></div>
    ${safeUrl(v.quelle) ? `<a class="btn out" href="${esc(v.quelle)}" target="_blank" rel="noopener">Ausschreibung öffnen ${ICON.ext}</a>` : ''}
    <button class="btn fill wide" id="fSave" type="button">Speichern</button>
+   ${a && a.status === 'gebucht' ? `<button class="btn tonal wide" id="fGage" type="button">${ICON.euro} Gage dazu eintragen</button>` : ''}
    ${a ? `<a class="btn out wide" id="fCal" href="#" target="_blank" rel="noopener">${ICON.cal} In Google Kalender eintragen</a><button class="btn danger wide" id="fDel" type="button">Löschen</button>` : ''}`, async body => {
     if (a) { const e = events([a])[0]; if (e) $('#fCal', body).href = googleLink(e); else $('#fCal', body).hidden = true; }
+    $('#fGage', body)?.addEventListener('click', () => gageSheet(null, () => done?.(), { projekt: a.projekt, art: /werbung/i.test(a.art) ? 'Werbung' : /theater/i.test(a.art) ? 'Theater' : 'Drehtag', auditionId: a.id }));
     const all = await db.all('auditions');
     $('#buerosList', body).innerHTML = [...new Set(all.map(x => x.buero).filter(Boolean))].map(b => `<option value="${esc(b)}">`).join('');
     let status = v.status;

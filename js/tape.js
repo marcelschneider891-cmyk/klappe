@@ -6,6 +6,7 @@ import { db, uid, ls } from './db.js';
 import { Reader, scriptVoice, SOURCES } from './voices.js';
 import { openVoiceSheet, voiceLabel } from './voicesheet.js';
 import { downloadTake, shareTake, trimSheet, toggleFav } from './takes.js';
+import { makeChecker } from './techcheck.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 export const LEVELS = [
@@ -75,15 +76,19 @@ function makeMixer(cam, level) {
 }
 
 export async function tapeView(view, script, { exit, profile }) {
-  const opts = Object.assign({ listen: 'vad', hide: 'zeigen', rate: 1, pause: 1000, cueGap: 150, slate: false, facing: 'user', level: 'laut' }, ls.get('tape.opts', {}));
+  const opts = Object.assign({ listen: 'vad', hide: 'zeigen', rate: 1, pause: 1000, cueGap: 150, slate: false, facing: 'user', level: 'laut', eyeline: 'links', guide: true }, ls.get('tape.opts', {}));
   const me = script.me || [];
+  let checker = null;
   let stream = null, vad = null, mixer = null, reader = null, rec = null, chunks = [], t0 = 0, timer = null, runner = null, recording = false, wake = null;
   const level = () => LEVELS.find(l => l.k === opts.level) || LEVELS[0];
 
   view.innerHTML = `
   <div class="tp">
    <video id="cam" playsinline autoplay muted></video>
+   <div class="tp-guide" id="tpGuide"><i class="eyes"></i><i class="head"></i></div>
    <div class="tp-tap" id="tpTap"></div>
+   <div class="tp-eye" id="tpLook">${ICON.eye}<span>Blick hierhin</span></div>
+   <div class="tp-check" id="tpCheck"></div>
    <div class="tp-prompt" id="tpPrompt"><div class="w">Bereit</div><div class="x">${isTouch() ? 'Tippe auf Aufnahme' : 'Klick auf Aufnahme oder drück die Leertaste'}. Nach dem Countdown startet die Szene.</div></div>
    <div class="tp-keys"><span><span class="kbd">Leertaste</span> Aufnahme</span><span><span class="kbd">→</span> Weiter</span><span><span class="kbd">L</span> Line!</span><span><span class="kbd">Esc</span> Schließen</span></div>
    <div class="tp-top">
@@ -106,6 +111,14 @@ export async function tapeView(view, script, { exit, profile }) {
     $('#tpVoice', view).innerHTML = `${ICON.voice}<span>${src === 'none' ? 'Stimme aus' : `${esc(voiceLabel(script))} · im Video ${esc(level().l.toLowerCase())}`}</span>`;
   };
   chip();
+  // Technik-Check und Rahmen nur vor der Aufnahme, Blickmarke immer (falls an)
+  function layout() {
+    $('#tpCheck', view).hidden = recording;
+    $('#tpGuide', view).hidden = recording || !opts.guide;
+    const look = $('#tpLook', view);
+    look.hidden = opts.eyeline === 'aus';
+    look.className = 'tp-eye ' + (opts.eyeline === 'rechts' ? 'r' : 'l');
+  }
 
   async function startCam() {
     stream?.getTracks().forEach(t => t.stop());
@@ -130,7 +143,9 @@ export async function tapeView(view, script, { exit, profile }) {
     video.srcObject = stream;
     const facing = stream.getVideoTracks()[0]?.getSettings?.().facingMode;
     video.classList.toggle('mirror', facing ? facing === 'user' : (opts.camId ? true : opts.facing === 'user'));
-    vad = makeVAD(stream);
+    vad = makeVAD(stream, { onLevel: (v, rms, talking) => checker?.onLevel(v, rms, talking) });
+    checker?.stop(); checker = makeChecker(video, $('#tpCheck', view));
+    layout();
     mixer = makeMixer(stream, level().v);
     reader = new Reader(script, { mixer });
   }
@@ -169,6 +184,7 @@ export async function tapeView(view, script, { exit, profile }) {
     await mixer.resume();
     recBtn.classList.add('on'); recBtn.setAttribute('aria-label', 'Aufnahme stoppen');
     recording = true;
+    layout();
     $('#tpVoice', view).hidden = true; $('#tpFlip', view).hidden = true;
     await countdown();
     if (!recording) return;
@@ -196,6 +212,7 @@ export async function tapeView(view, script, { exit, profile }) {
 
   function stopRec() {
     recording = false;
+    layout();
     runner?.destroy(); runner = null;
     mixer?.partner(false);
     clearInterval(timer);
@@ -273,20 +290,22 @@ export async function tapeView(view, script, { exit, profile }) {
     ls.set('tape.opts', opts);
     toast({ zeigen: 'Dein Text wird angezeigt', anfang: 'Nur Anfangsbuchstaben', aus: 'Dein Text ist versteckt' }[opts.hide]);
   };
-  $('#tpGear', view).onclick = () => tapeSettings(opts, () => startCam());
+  $('#tpGear', view).onclick = () => tapeSettings(opts, () => startCam(), layout);
   const mimeP = pickMime(); // vorab testen, damit die Aufnahme ohne Wartezeit startet
-  const leave = () => { document.removeEventListener('keydown', keys); stopRec(); vad?.close(); mixer?.close(); stream?.getTracks().forEach(t => t.stop()); tts.cancel(); };
+  const leave = () => { checker?.stop(); document.removeEventListener('keydown', keys); stopRec(); vad?.close(); mixer?.close(); stream?.getTracks().forEach(t => t.stop()); tts.cancel(); };
   $('#tpExit', view).onclick = () => { leave(); exit(); };
   return leave;
 }
 
-async function tapeSettings(opts, restartCam) {
+async function tapeSettings(opts, restartCam, relayout) {
   const devs = await navigator.mediaDevices.enumerateDevices().catch(() => []);
   const cams = devs.filter(d => d.kind === 'videoinput'), mics = devs.filter(d => d.kind === 'audioinput' && d.deviceId !== 'communications');
   const devSel = (id, list, cur, std) => `<select class="inp" id="${id}"><option value="">${std}</option>${list.map((d, i) => `<option value="${esc(d.deviceId)}"${d.deviceId === cur ? ' selected' : ''}>${esc(d.label || (id === 'tCam' ? 'Kamera ' : 'Mikrofon ') + (i + 1))}</option>`).join('')}</select>`;
   openSheet('Aufnahme', `
    <div class="field"><label for="tCam">Kamera</label>${devSel('tCam', cams, opts.camId, 'Standard (Frontkamera)')}</div>
    <div class="field"><label for="tMic">Mikrofon</label>${devSel('tMic', mics, opts.micId, 'Standard')}</div>
+   <div class="field"><label for="tE">Blickrichtung (wo dein Partner stünde)</label><select class="inp" id="tE">${[['links', 'Links neben der Kamera'], ['rechts', 'Rechts neben der Kamera'], ['aus', 'Keine Markierung']].map(([k, l]) => `<option value="${k}"${opts.eyeline === k ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
+   <div class="set card"><div class="li-main"><b>Bildrahmen einblenden</b><small>Hilfslinien für Augenhöhe und Kopf, nur vor der Aufnahme</small></div><label class="switch"><input type="checkbox" id="tG"${opts.guide ? ' checked' : ''} aria-label="Bildrahmen einblenden"><i></i></label></div>
    <div class="field"><label for="tL">Wann geht es nach deinem Satz weiter?</label>
     <select class="inp" id="tL">${[['vad', 'Pause erkennen'], ['tap', 'Ich tippe oder drücke →'], ['auto', 'Nach Zeit']].map(([k, l]) => `<option value="${k}"${opts.listen === k ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
    <div class="field"><label for="tP">Pause bis zum Einsatz: <b id="tPV">${(opts.pause / 1000).toFixed(1)} s</b></label><input id="tP" type="range" min="500" max="2500" step="100" value="${opts.pause}"></div>
@@ -301,7 +320,8 @@ async function tapeSettings(opts, restartCam) {
       const devChanged = $('#tCam', body).value !== (opts.camId || '') || $('#tMic', body).value !== (opts.micId || '');
       opts.camId = $('#tCam', body).value; opts.micId = $('#tMic', body).value;
       opts.listen = $('#tL', body).value; opts.pause = +$('#tP', body).value; opts.rate = +$('#tR', body).value; opts.slate = $('#tS', body).checked;
-      ls.set('tape.opts', opts); closeSheet(); toast('Gespeichert');
+      opts.eyeline = $('#tE', body).value; opts.guide = $('#tG', body).checked;
+      ls.set('tape.opts', opts); closeSheet(); toast('Gespeichert'); relayout?.();
       if (devChanged) restartCam?.();
     };
   });

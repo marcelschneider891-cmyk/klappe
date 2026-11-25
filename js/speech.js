@@ -108,7 +108,7 @@ export function makeVAD(stream, { onLevel } = {}) {
     let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
     const rms = Math.sqrt(s / buf.length);
     const thr = Math.max(floor * 2.6, 0.012);
-    onLevel?.(Math.min(1, rms / (thr * 2.5)));
+    onLevel?.(Math.min(1, rms / (thr * 2.5)), rms, !!armed?.talking);
     if (!armed) { floor = Math.max(0.003, floor * 0.93 + rms * 0.07); return; }
     if (rms > thr) { armed.speech += 50; armed.silence = 0; if (armed.speech >= 250) armed.talking = true; }
     else if (armed.talking) {

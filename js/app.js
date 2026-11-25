@@ -12,6 +12,11 @@ import { openVoiceSheet, voiceLabel } from './voicesheet.js';
 import { mastery, masteryLabel, scheduleReminders } from './learn.js';
 import { lastBackup, hasData } from './backup.js';
 import { illu, splash, swipeList } from './fx.js';
+import { roleView, fmtLine, roleProgress, QUESTIONS } from './role.js';
+import { autoSync } from './sync.js';
+import { monologeView } from './monologe.js';
+import { warmupView, totalMin } from './warmup.js';
+import { showreelView } from './showreel.js';
 
 const view = $('#view');
 let cleanup = null;
@@ -33,7 +38,7 @@ async function render() {
   const h = location.hash.slice(1) || 'start';
   const [name, ...rest] = h.split('-');
   const id = rest.join('-');
-  const parent = name === 'skript' ? 'skripte' : ['profil', 'profilbearbeiten', 'einstellungen'].includes(name) ? 'start' : name;
+  const parent = ['skript', 'rolle', 'monologe', 'showreel'].includes(name) ? 'skripte' : ['profil', 'profilbearbeiten', 'einstellungen', 'warmup'].includes(name) ? 'start' : name;
   $$('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.tab === parent));
   const full = name === 'proben' || name === 'tape';
   document.body.classList.toggle('full', full);
@@ -57,6 +62,10 @@ async function render() {
     else if (name === 'profil') cleanup = await profileView(view, { go });
     else if (name === 'profilbearbeiten') await profileEdit(view, { go });
     else if (name === 'einstellungen') await settingsView(view, { go });
+    else if (name === 'rolle') cleanup = await roleView(view, id, { go });
+    else if (name === 'monologe') await monologeView(view, { go });
+    else if (name === 'warmup') cleanup = await warmupView(view, { go });
+    else if (name === 'showreel') cleanup = await showreelView(view, { go });
     else if (name === 'import') await importShared();
     else go('start', true);
   } catch (e) {
@@ -90,6 +99,7 @@ async function startView() {
     ${teaser.length ? `<div class="hscroll" id="teaser">${teaser.map(c => miniHtml(c, freshIds.has(c.id))).join('')}</div>`
       : `<div class="empty">${illu('radar')}<b>Noch nichts Passendes</b>${radar.offline ? 'Du bist offline.' : 'Das Radar sucht jeden Tag neu.'}</div>`}
    </section>
+   <section class="sec quick"><a href="#warmup" class="press"><span class="tile">${ICON.voice}</span><span><b>Warm-up</b><small>${totalMin()} Minuten Stimme und Atmung</small></span></a><a href="#monologe" class="press"><span class="tile">${ICON.doc}</span><span><b>Monologe</b><small>Klassiker fürs Vorsprechen</small></span></a></section>
    <section class="sec"><div class="sec-h"><h2>Weiter proben</h2>${scripts.length ? '<a href="#skripte">Alle</a>' : ''}</div>
     ${scripts.length ? `<div class="list">${scripts.slice(0, 3).map(scriptRow).join('')}</div>`
       : `<button class="empty" id="demoBtn" type="button">${illu('script')}<b>Probier die Demo-Szene</b>„Nachtschicht“, zwei Figuren, eine Tankstelle um drei Uhr nachts.</button>`}
@@ -117,7 +127,7 @@ function scriptRow(s) {
 // ---------- Skripte ----------
 async function scriptsView() {
   const scripts = (await db.all('scripts')).sort((a, b) => b.created.localeCompare(a.created));
-  setTop({ title: 'Skripte', large: true });
+  setTop({ title: 'Skripte', large: true, actions: `<a class="ic" href="#monologe" aria-label="Monologe">${ICON.doc}</a><a class="ic" href="#showreel" aria-label="Showreel">${ICON.film}</a>` });
   setFab({ label: 'Importieren', icon: ICON.upload, onClick: importSheet });
   view.innerHTML = `${largeTitle('Skripte', scripts.length ? `${scripts.length} ${scripts.length === 1 ? 'Szene' : 'Szenen'}` : '')}
    ${scripts.length ? `<div class="pages">${scripts.map(s => {
@@ -250,12 +260,12 @@ async function scriptView(id) {
     <div class="chips" id="roles" style="flex-wrap:wrap;margin:0;padding:0">${s.characters.map(c => `<button class="chip${s.me.includes(c) ? ' on' : ''}" data-c="${esc(c)}" type="button">${esc(c)} · ${cnt(c)}</button>`).join('')}</div>
    </div>
    ${s.me.length ? `<div class="card pad sec stack" style="gap:8px"><div class="row" style="justify-content:space-between"><b>Text sitzt zu ${mastery(s) ?? 0} %</b><span class="muted small">${s.practiced ? 'geübt ' + esc(fmtDate(s.practiced)) : 'noch nicht geübt'}</span></div><div class="progress"><i style="width:${mastery(s) ?? 0}%"></i></div><p class="muted small">Beim Proben mit dem Auge den Text ausblenden. Jeder Satz, den du ohne „Line!“ schaffst, zählt.</p></div>` : ''}
-   <div class="list sec"><button class="li" id="sVoice2" type="button"><span class="tile">${ICON.voice}</span><span class="li-main"><b>Partnerstimme</b><small>${esc(voiceLabel(s))}</small></span>${ICON.chev}</button></div>
+   <div class="list sec"><a class="li" href="#rolle-${esc(id)}"><span class="tile">${ICON.user}</span><span class="li-main"><b>Rollenarbeit</b><small>${roleProgress(s)} von ${QUESTIONS.length} Fragen beantwortet</small></span>${ICON.chev}</a><button class="li" id="sVoice2" type="button"><span class="tile">${ICON.voice}</span><span class="li-main"><b>Partnerstimme</b><small>${esc(voiceLabel(s))}</small></span>${ICON.chev}</button></div>
    ${takes.length ? `<div class="sec"><div class="sec-h"><h2>Takes</h2>${takes.length > 1 ? '<button type="button" id="cmp">Vergleichen</button>' : ''}</div><div class="takes">${takes.map(t => `<button class="take" type="button" data-t="${esc(t.id)}"><video muted playsinline preload="metadata"></video><b>Take ${t.n}${t.fav ? ' ★' : ''}</b><small>${esc(fmtDate(t.created))} · ${t.dur} s</small></button>`).join('')}</div></div>` : ''}
    <div class="sec"><div class="sec-h"><h2>Skript</h2><span class="muted small">Zeile antippen zum Korrigieren</span></div>
     <div class="script" id="paper">${s.blocks.map((b, i) => b.type === 'act'
       ? `<p class="act" data-edit="${i}">${esc(b.text)}</p>`
-      : `<p class="ln${s.me.includes(b.who) ? ' me' : ''}" data-edit="${i}"><span class="who">${s.me.includes(b.who) ? `<mark>${esc(b.who)}</mark>` : esc(b.who)}</span><span class="txt">${esc(b.text)}</span></p>`).join('')}</div>
+      : `<p class="ln${s.me.includes(b.who) ? ' me' : ''}" data-edit="${i}"><span class="who">${s.me.includes(b.who) ? `<mark>${esc(b.who)}</mark>` : esc(b.who)}</span><span class="txt">${fmtLine(b.text)}</span>${b.mynote ? `<span class="mynote">${esc(b.mynote)}</span>` : ''}</p>`).join('')}</div>
    </div>
    <div style="height:84px"></div>
    <div class="bar">
@@ -331,14 +341,15 @@ function editBlock(s, i) {
   openSheet('Zeile bearbeiten', `
    <div class="field"><label for="bW">Wer spricht?</label><select class="inp" id="bW">${opts.map(([k, l]) => `<option value="${esc(k)}"${k === cur ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
    <div class="field" id="bNewF" hidden><label for="bNew">Name der neuen Figur</label><input class="inp" id="bNew" autocomplete="off"></div>
-   <div class="field"><label for="bX">Text</label><textarea class="inp" id="bX" style="min-height:120px">${esc(b.text)}</textarea></div>
+   <div class="field"><label for="bX">Text</label><textarea class="inp" id="bX" style="min-height:120px">${esc(b.text)}</textarea><span class="muted small">*Wort* = betonen, Leerzeichen / Leerzeichen = Pause</span></div>
+   <div class="field"><label for="bM">Meine Notiz zu dieser Zeile</label><input class="inp" id="bM" value="${esc(b.mynote || '')}" placeholder="z. B. leise, Blick weg, Pause vor dem Satz"></div>
    <button class="btn fill wide" id="bSave" type="button">Speichern</button>
    <button class="btn danger wide" id="bDel" type="button">Zeile löschen</button>`, body => {
     $('#bW', body).onchange = e => { $('#bNewF', body).hidden = e.target.value !== '__new'; };
     $('#bSave', body).onclick = async () => {
       let w = $('#bW', body).value;
       if (w === '__new') { w = $('#bNew', body).value.trim().toUpperCase(); if (!w) return toast('Gib einen Namen ein.'); }
-      s.blocks[i] = w === '__act' ? { id: b.id, type: 'act', text: $('#bX', body).value.trim() } : { id: b.id, type: 'line', who: w, text: $('#bX', body).value.trim() };
+      s.blocks[i] = w === '__act' ? { id: b.id, type: 'act', text: $('#bX', body).value.trim() } : { id: b.id, type: 'line', who: w, text: $('#bX', body).value.trim(), mynote: $('#bM', body).value.trim() };
       recount(s); await db.put('scripts', s); closeSheet(); go('skript-' + s.id, true);
     };
     $('#bDel', body).onclick = async () => { s.blocks.splice(i, 1); recount(s); await db.put('scripts', s); closeSheet(); go('skript-' + s.id, true); };
@@ -443,6 +454,8 @@ window.addEventListener('drop', async e => {
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 captureSetupLink();
 splash();
+autoSync();
+window.addEventListener('klappe-synced', () => { if (!document.body.classList.contains('full') && $('#sheet').hidden) render(); });
 render().finally(() => { window.__klappeOk = true; document.getElementById('rescue')?.remove(); });
 setTimeout(() => scheduleReminders().catch(() => {}), 3000);
 document.addEventListener('visibilitychange', async () => {
