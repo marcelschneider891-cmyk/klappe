@@ -1,5 +1,7 @@
 // Self-Tape: Kamera an, Partner liest. Im Video ist die Partnerstimme laut, leise oder gar nicht zu hören.
-import { Runner, initials } from './runner.js';
+import { Runner } from './runner.js';
+import { MODES, display } from './learn.js';
+import { fmtLine, plain } from './role.js';
 import { makeVAD, tts } from './speech.js';
 import { $, $$, esc, ICON, openSheet, closeSheet, toast, buzz } from './ui.js';
 import { db, uid, ls } from './db.js';
@@ -182,12 +184,26 @@ export async function tapeView(view, script, { exit, profile }) {
     mixer = makeMixer(stream, level().v);
     reader = new Reader(script, { mixer });
   }
+  layout();
   await startCam();
 
-  const show = (who, text, mine) => {
-    const t = mine && opts.hide === 'anfang' ? initials(text) : text;
-    prompt.innerHTML = `<div class="w">${esc(who)}</div><div class="x${mine ? '' : ' dim'}${mine && opts.hide === 'aus' ? ' hide' : ''}">${esc(t)}</div>`;
-    if (mine && opts.hide === 'aus') prompt.querySelector('.x').onclick = e => e.target.classList.remove('hide');
+  // Text oben anzeigen. Eigene Sätze je nach Lernstufe, mit klarem Hinweis, wenn nicht der ganze Text zu sehen ist.
+  let last = null;
+  const modeLabel = () => (MODES.find(m => m.k === opts.hide) || MODES[0]).l;
+  const show = (who, text, mine, full = false) => {
+    last = { who, text, mine };
+    const m = text.match(/^\(([^)]*)\)\s*/);
+    const note = m ? m[1] : '', raw = m ? text.slice(m[0].length) : text;
+    const mode = mine && !full ? opts.hide : 'zeigen';
+    const body = mode === 'zeigen' || mode === 'aus' ? fmtLine(raw) : esc(display(plain(raw), mode));
+    prompt.innerHTML = `<div class="w">${esc(who)}</div>${note ? `<div class="n">(${esc(note)})</div>` : ''}<div class="x${mine ? '' : ' dim'}${mode === 'aus' ? ' hide' : ''}">${body}</div>`
+      + (mine && mode !== 'zeigen' ? `<button type="button" class="tp-mode">${esc(modeLabel())} · ganzen Text zeigen</button>` : '');
+    prompt.querySelector('.tp-mode')?.addEventListener('click', () => show(who, text, mine, true));
+  };
+  const showHint = () => {
+    if (recording) { if (last) show(last.who, last.text, last.mine); return; }
+    prompt.innerHTML = `<div class="w">Bereit</div><div class="x">${matchMedia('(hover: none)').matches ? 'Tippe auf Aufnahme' : 'Klick auf Aufnahme oder drück die Leertaste'}. Nach dem Countdown startet die Szene.</div>`
+      + (opts.hide !== 'zeigen' ? `<div class="n">Dein Text: ${esc(modeLabel())} (Auge oben rechts ändert das)</div>` : '');
   };
 
   const hooks = {
@@ -199,7 +215,7 @@ export async function tapeView(view, script, { exit, profile }) {
     },
     onState(s) { if (s === 'end' && recording) setTimeout(() => recording && stopRec(), 1400); },
     onPartner(on) { mixer?.partner(on, reader?.digital); },
-    onFeed(text) { const x = prompt.querySelector('.x'); if (x) { x.classList.remove('hide'); x.textContent = text; } },
+    onFeed() { if (last) show(last.who, last.text, last.mine, true); }, // „Line!“: ganzen Satz zeigen
     onHeard() {}, onFinish() {}
   };
 
@@ -236,7 +252,7 @@ export async function tapeView(view, script, { exit, profile }) {
     runner = new Runner({ script, me, opts: { ...opts, readActions: false }, vad, hooks, reader, quietFeed: true });
     if (opts.slate) {
       const p = profile || {};
-      show('Vorstellung', [p.name, p.groesse ? p.groesse + ' cm' : '', p.wohnort].filter(Boolean).join(' · ') + '. Danach kurz Pause, dann startet die Szene.', true);
+      show('Vorstellung', [p.name, p.groesse ? p.groesse + ' cm' : '', p.wohnort].filter(Boolean).join(' · ') + '. Danach kurz Pause, dann startet die Szene.', true, true);
       await new Promise(res => vad ? vad.arm(opts.pause, res) : setTimeout(res, 6000));
       if (!recording) return;
     }
@@ -297,7 +313,9 @@ export async function tapeView(view, script, { exit, profile }) {
 
   recBtn.onclick = () => { buzz(); recording ? stopRec() : startRec(); };
   $('#tpVoice', view).onclick = voiceSheet;
-  $('#tpTap', view).onclick = () => { if (recording && runner) runner.next(); };
+  $('#tpTap', view).onclick = () => { if (recording && runner && opts.listen === 'tap') runner.next(); };
+  // Nach Mausklick den Fokus vom Knopf nehmen, sonst löst die Leertaste ihn ein zweites Mal aus
+  view.addEventListener('mouseup', e => e.target.closest('button')?.blur());
   $('#tpFlip', view).onclick = async () => {
     if (recording) return;
     // Mehrere Kameras (PC, Handy mit mehreren Linsen): der Reihe nach durchschalten
@@ -314,18 +332,21 @@ export async function tapeView(view, script, { exit, profile }) {
   // Tastatur am PC
   const keys = e => {
     if (!document.getElementById('cam') || !$('#sheet').hidden || /input|select|textarea/i.test(e.target.tagName)) return;
-    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); recBtn.click(); }
+    if (e.repeat) return;
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); document.activeElement?.blur?.(); recBtn.click(); }
     else if (e.key === 'ArrowRight' || e.key === 'n') { if (recording && runner) runner.next(); }
     else if (e.key === 'l' || e.key === 'L') { if (recording && runner) runner.feed(); }
     else if (e.key === 'Escape') { $('#tpExit', view).click(); }
   };
   document.addEventListener('keydown', keys);
   $('#tpEye', view).onclick = () => {
-    const order = ['zeigen', 'anfang', 'aus'];
-    opts.hide = order[(order.indexOf(opts.hide) + 1) % 3];
+    const i = MODES.findIndex(m => m.k === opts.hide);
+    opts.hide = MODES[(i + 1) % MODES.length].k;
     ls.set('tape.opts', opts);
-    toast({ zeigen: 'Dein Text wird angezeigt', anfang: 'Nur Anfangsbuchstaben', aus: 'Dein Text ist versteckt' }[opts.hide]);
+    toast('Dein Text: ' + modeLabel());
+    showHint();
   };
+  showHint();
   $('#tpGear', view).onclick = () => tapeSettings(opts, () => startCam(), layout);
   const mimeP = pickMime(); // vorab testen, damit die Aufnahme ohne Wartezeit startet
   const leave = () => { screen.orientation?.removeEventListener?.('change', onRot); unlockLandscape(); checker?.stop(); document.removeEventListener('keydown', keys); stopRec(); vad?.close(); mixer?.close(); stream?.getTracks().forEach(t => t.stop()); tts.cancel(); };

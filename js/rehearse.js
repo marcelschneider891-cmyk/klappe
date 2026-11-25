@@ -145,13 +145,15 @@ export async function rehearseView(view, script, { exit }) {
   // Tastatur am PC: Leertaste Play/Pause, Pfeile vor/zurück, L = Line!, Esc = beenden
   const keys = e => {
     if (!document.getElementById('rhLines') || !$('#sheet').hidden || /input|select|textarea/i.test(e.target.tagName)) return;
-    if (e.key === ' ') { e.preventDefault(); playBtn.click(); }
+    if (e.repeat) return;
+    if (e.key === ' ') { e.preventDefault(); document.activeElement?.blur?.(); playBtn.click(); }
     else if (e.key === 'ArrowRight') runner.next();
     else if (e.key === 'ArrowLeft') runner.prev();
     else if (e.key === 'l' || e.key === 'L') runner.feed();
     else if (e.key === 'Escape') $('#rhExit', view).click();
   };
   document.addEventListener('keydown', keys);
+  view.addEventListener('mouseup', e => e.target.closest('button')?.blur());
   const leave = () => { document.removeEventListener('keydown', keys); runner?.destroy(); vad?.close(); mic?.getTracks().forEach(t => t.stop()); releaseWake(); };
   $('#rhExit', view).onclick = () => { leave(); exit(); };
   return leave;

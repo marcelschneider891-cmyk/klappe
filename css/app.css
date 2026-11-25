@@ -462,3 +462,14 @@ input[type=range]{width:100%;accent-color:var(--primary)}
  .tp-eye.r{right:calc(130px + env(safe-area-inset-right,0px))}
  .tp-keys{display:none}
 }
+/* ---------- Self-Tape: Text oben besser lesbar, Lernstufe sichtbar ---------- */
+.tp-prompt .n{font:italic 500 .85rem var(--f);color:rgba(255,255,255,.75);margin-top:2px}
+.tp-mode{margin-top:8px;border:0;border-radius:14px;padding:5px 12px;background:rgba(212,176,114,.22);color:var(--primary);font:600 .78rem var(--f);cursor:pointer}
+.tp-prompt .em{text-decoration-color:var(--primary)}
+@media (min-width:900px) and (min-height:560px){
+ .tp-prompt{width:min(calc(100% - 400px),980px);padding:14px 22px}
+ .tp-eye.l{left:max(64px,calc(50% - min(calc(50% - 200px),490px) - 130px))}
+ .tp-eye.r{right:max(112px,calc(50% - min(calc(50% - 200px),490px) - 130px))}
+ .tp-prompt .x{font-size:clamp(1.25rem,1.9vw,1.8rem);line-height:1.35}
+ .tp-prompt .w{font-size:.8rem}
+}
