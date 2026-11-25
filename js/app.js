@@ -1,4 +1,4 @@
-﻿// Klappe – Navigation, Heute, Skripte
+// Klappe – Navigation, Heute, Skripte
 import { db, uid, ls } from './db.js';
 import { $, $$, esc, ICON, openSheet, closeSheet, toast, ask, fmtDate, setTop, setFab, largeTitle, daysUntil, relDays, buzz } from './ui.js';
 import { pdfToLines, textToLines, parseLines } from './parser.js';

@@ -1,4 +1,4 @@
-﻿// Proben: der Partner liest, du sprichst, "Line!" hilft.
+// Proben: der Partner liest, du sprichst, "Line!" hilft.
 import { Runner, initials } from './runner.js';
 import { srAvailable, makeVAD, micStream, tts } from './speech.js';
 import { $, $$, esc, ICON, openSheet, closeSheet, toast } from './ui.js';

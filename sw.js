@@ -1,4 +1,4 @@
-﻿// Offline-Speicher und "Teilen"-Ziel für PDFs aus der Mail.
+// Offline-Speicher und "Teilen"-Ziel für PDFs aus der Mail.
 // Immer zuerst aus dem Netz laden (damit nach Updates nie alte und neue Teile gemischt werden),
 // nur offline aus dem Speicher.
 const CACHE = 'klappe-v3';

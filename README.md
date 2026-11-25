@@ -1,4 +1,4 @@
-﻿# Klappe
+# Klappe
 
 Schauspiel-App fürs Handy: Texte lernen, mit Szenenpartner proben, Self-Tapes drehen, Castings festhalten und passende Ausschreibungen finden.
 

@@ -1,4 +1,4 @@
-﻿// Sheet: Partnerstimme für ein Skript wählen (Handy, ElevenLabs, Aufnahme, Aus)
+// Sheet: Partnerstimme für ein Skript wählen (Handy, ElevenLabs, Aufnahme, Aus)
 import { $, $$, esc, ICON, openSheet, closeSheet, toast, buzz } from './ui.js';
 import { db } from './db.js';
 import { tts, micStream } from './speech.js';
