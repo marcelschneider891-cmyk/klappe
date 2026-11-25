@@ -17,6 +17,7 @@ import { autoSync } from './sync.js';
 import { monologeView } from './monologe.js';
 import { warmupView, totalMin } from './warmup.js';
 import { showreelView } from './showreel.js';
+import { quellenView } from './quellen.js';
 
 const view = $('#view');
 let cleanup = null;
@@ -38,7 +39,7 @@ async function render() {
   const h = location.hash.slice(1) || 'start';
   const [name, ...rest] = h.split('-');
   const id = rest.join('-');
-  const parent = ['skript', 'rolle', 'monologe', 'showreel'].includes(name) ? 'skripte' : ['profil', 'profilbearbeiten', 'einstellungen', 'warmup'].includes(name) ? 'start' : name;
+  const parent = ['skript', 'rolle', 'monologe', 'showreel'].includes(name) ? 'skripte' : ['profil', 'profilbearbeiten', 'einstellungen', 'warmup'].includes(name) ? 'start' : name === 'quellen' ? 'radar' : name;
   $$('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.tab === parent));
   const full = name === 'proben' || name === 'tape';
   document.body.classList.toggle('full', full);
@@ -66,6 +67,7 @@ async function render() {
     else if (name === 'monologe') await monologeView(view, { go });
     else if (name === 'warmup') cleanup = await warmupView(view, { go });
     else if (name === 'showreel') cleanup = await showreelView(view, { go });
+    else if (name === 'quellen') await quellenView(view);
     else if (name === 'import') await importShared();
     else go('start', true);
   } catch (e) {

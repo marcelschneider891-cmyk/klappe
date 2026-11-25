@@ -1,0 +1,76 @@
+{
+ "stand": "2026-11-25",
+ "hinweis": "Kosten laut Recherche vom 25.11.2026, vor einer Anmeldung bitte auf der Seite selbst prüfen. „unklar“ heißt: nicht sicher belegt.",
+ "gruppen": [
+  {
+   "titel": "Casting-Ausschreibungen (Film, Serie, Werbung)",
+   "quellen": [
+    { "name": "Jobwork", "url": "https://www.jobwork.com/de/jobs/schauspieler", "was": "Viele bezahlte Rollen in Film, Werbung, Theater und Events, mit Gage im Titel", "kosten": "Bewerben nur mit Plus-Mitgliedschaft", "radar": "liest automatisch" },
+    { "name": "enCAST", "url": "https://www.encast.pro/castings?cntry=DE&sort=posted", "was": "Internationale Castings in Deutschland, oft auf Englisch, Kurzfilme bis Werbung", "kosten": "Konto zum Bewerben nötig, Kosten unklar", "radar": "liest automatisch" },
+    { "name": "Stagepool", "url": "https://de.stagepool.com/jobs", "was": "Rollen in Film, Theater, Werbung, auch Gastverträge. Du hast dort schon ein Profil", "kosten": "unklar", "radar": "liest automatisch" },
+    { "name": "Casting Connect", "url": "https://casting-connect.de/castings/", "was": "Werbe- und Filmcastings, Bewerbung per Mail", "kosten": "kostenlos", "radar": "liest automatisch" },
+    { "name": "Castingpartner", "url": "https://www.castingpartner.de/", "was": "Castingtermine für Film, TV und Werbung", "kosten": "kostenlos registrieren", "radar": "liest automatisch" },
+    { "name": "nebenjob.de", "url": "https://www.nebenjob.de/", "was": "Jobbörse, auf der Agenturen auch bezahlte Werbecastings ausschreiben", "kosten": "unklar", "radar": "liest automatisch" },
+    { "name": "schauspielervideos.de E-Castings", "url": "https://www.schauspielervideos.de/ecasting/index", "was": "Rollen mit E-Casting, oft mit Drehzeitraum und Ort", "kosten": "Bewerben nur für Mitglieder", "radar": "nur über Websuche (Seite verbietet automatisches Lesen)" },
+    { "name": "Castfinder", "url": "https://go.castfinder.de/casting-aktuell/", "was": "Aktuelle Castings verschiedener Auftraggeber", "kosten": "unklar", "radar": "nur über Websuche (blockt automatische Zugriffe)" },
+    { "name": "CAST ME", "url": "https://castme.app/", "was": "App mit Castings, auch von Hochschulen", "kosten": "unklar", "radar": "nur über Websuche" },
+    { "name": "schauspieler-gesucht.com", "url": "https://www.schauspieler-gesucht.com/", "was": "Sammlung von Castingaufrufen, nach Städten sortiert", "kosten": "unklar", "radar": "nur über Websuche" }
+   ]
+  },
+  {
+   "titel": "Fernsehen und TV-Produktionen",
+   "quellen": [
+    { "name": "Constantin Casting", "url": "https://www.constantin-casting.de/", "was": "Schauspieler, Laien und Komparsen für TV-Formate", "kosten": "kostenlos", "radar": "liest automatisch" },
+    { "name": "Casting für Alle", "url": "https://www.castingfueralle.de/", "was": "Shows, Soaps und Filme, Laien und Schauspieler", "kosten": "kostenlose Sedcard", "radar": "liest automatisch" },
+    { "name": "UFA Talentbase", "url": "https://www.ufa.de/en/casting/for-talents", "was": "Talent-Datenbank der UFA (GZSZ, Serien, Shows)", "kosten": "unklar", "radar": "manuell anmelden" }
+   ]
+  },
+  {
+   "titel": "Komparsen und Nebenrollen (Agenturen, Anmeldung lohnt sich)",
+   "quellen": [
+    { "name": "Agentur Filmgesichter", "url": "https://www.agenturfilmgesichter.de/", "was": "Komparsen und Kleindarsteller, oft Drehs im Raum Stuttgart. Bei einem Kinofilm dort gab es für Kleindarsteller mindestens 200 € pro Drehtag", "kosten": "kostenlos", "radar": "manuell anmelden" },
+    { "name": "STARBOXX Stuttgart", "url": "https://www.starboxx.de/talente-stuttgart.php", "was": "Agentur für Schauspieler und Komparsen, auch Baden-Baden, Freiburg, Karlsruhe", "kosten": "kostenlos", "radar": "manuell anmelden" },
+    { "name": "Blank & Biehl", "url": "https://www.blankundbiehl.de/bewerbung/schauspieler/", "was": "Werbung, Online, TV, Nebenrollen und Typrollen", "kosten": "kostenlos", "radar": "manuell anmelden" },
+    { "name": "FAMEONME", "url": "https://www.fameonme.de/", "was": "Werbung, Models, Schauspieler, auch Stuttgart und Karlsruhe", "kosten": "kostenlos registrieren", "radar": "manuell anmelden" },
+    { "name": "komparse.de", "url": "https://www.komparse.de/", "was": "Sammelt Komparsen- und Kleindarsteller-Gesuche von über 150 Agenturen", "kosten": "Basis kostenlos, unbegrenzt bewerben nur mit Premium", "radar": "liest automatisch" },
+    { "name": "Komparse-Casting", "url": "https://komparse-casting.de/", "was": "Castings und Jobs für Darsteller und Protagonisten", "kosten": "unklar", "radar": "liest automatisch" }
+   ]
+  },
+  {
+   "titel": "Studentenfilme und Hochschulen",
+   "quellen": [
+    { "name": "dffb Schwarzes Brett", "url": "https://www.dffb.de/service/schwarzes-brett/", "was": "Castingaufrufe der Berliner Filmhochschule, manche mit Gage", "kosten": "kostenlos (direkt per Mail)", "radar": "liest automatisch" },
+    { "name": "studentfilm.ch", "url": "https://studentfilm.ch/kategorie/cast", "was": "Castings von Schweizer Filmschulen, teils mit Gage", "kosten": "kostenlos (direkt per Mail)", "radar": "liest automatisch" }
+   ]
+  },
+  {
+   "titel": "Theater und Bühne",
+   "quellen": [
+    { "name": "Jobbörse Deutscher Bühnenverein", "url": "https://www.buehnenverein.de/de/jobboerse", "was": "Stellen, Gastverträge und Vorsprechen an Theatern", "kosten": "kostenlos", "radar": "liest automatisch" },
+    { "name": "Theapolis", "url": "https://www.theapolis.de/de/jobs/schauspieler/job.html", "was": "Schauspiel-Jobs an Theatern, Tourneen und Krimi-Dinner", "kosten": "unklar", "radar": "liest automatisch" }
+   ]
+  },
+  {
+   "titel": "Jobbörsen und Vermittlung",
+   "quellen": [
+    { "name": "Jobsuche der Arbeitsagentur", "url": "https://www.arbeitsagentur.de/jobsuche/suche?was=Schauspieler", "was": "Stellenangebote für Schauspieler, vor allem Theater", "kosten": "kostenlos", "radar": "liest automatisch" },
+    { "name": "ZAV-Künstlervermittlung", "url": "https://zav.arbeitsagentur.de/", "was": "Staatliche Vermittlung für Schauspieler in Film, TV und Theater, ohne Provision", "kosten": "kostenlos", "radar": "manuell anmelden" },
+    { "name": "Indeed, Jooble, Kimeta", "url": "https://de.indeed.com/Schauspieler-Jobs", "was": "Allgemeine Jobsuchmaschinen, sammeln auch Schauspiel-Anzeigen", "kosten": "kostenlos", "radar": "nur über Websuche (blocken automatische Zugriffe)" }
+   ]
+  },
+  {
+   "titel": "Profile, über die Casting-Büros dich finden",
+   "quellen": [
+    { "name": "Filmmakers", "url": "https://www.filmmakers.eu/", "was": "Von Casting-Büros am meisten genutzte Datenbank im deutschsprachigen Raum", "kosten": "Basis kostenlos, Volleintrag kostenpflichtig", "radar": "Profil, keine Ausschreibungen" },
+    { "name": "Castupload", "url": "https://www.castupload.com/", "was": "Schauspieler-Datenbank, eng mit Filmmakers verbunden", "kosten": "kostenloses Profil", "radar": "Profil, keine Ausschreibungen" },
+    { "name": "e-TALENTA (früher Castforward)", "url": "https://www.etalenta.eu/", "was": "Internationale E-Casting-Plattform", "kosten": "Basis kostenlos, Pro kostenpflichtig", "radar": "Profil, keine Ausschreibungen" }
+   ]
+  },
+  {
+   "titel": "Nur von Hand (Login nötig)",
+   "quellen": [
+    { "name": "Facebook-Gruppen und Instagram", "url": "", "was": "Viele Komparsen- und Casting-Aufrufe laufen in Gruppen und über Instagram-Accounts von Agenturen. Vorsicht bei Gebühren, Vorkasse oder Nacktfotos", "kosten": "kostenlos", "radar": "kann das Radar nicht lesen" }
+   ]
+  }
+ ]
+}

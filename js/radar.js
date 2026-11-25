@@ -106,7 +106,7 @@ export function detailSheet(c, onChange) {
 }
 
 export async function radarView(view, { go }) {
-  setTop({ title: 'Radar', large: true, actions: `<button class="ic" id="rRef" type="button" aria-label="Aktualisieren">${ICON.refresh}</button><button class="ic" id="rProf" type="button" aria-label="Suchprofil">${ICON.user}</button>` });
+  setTop({ title: 'Radar', large: true, actions: `<a class="ic" href="#quellen" aria-label="Quellen">${ICON.doc}</a><button class="ic" id="rRef" type="button" aria-label="Aktualisieren">${ICON.refresh}</button><button class="ic" id="rProf" type="button" aria-label="Suchprofil">${ICON.user}</button>` });
   setFab(null);
   view.innerHTML = `${largeTitle('Radar')}<div class="stack"><div class="skel" style="height:120px"></div><div class="skel" style="height:120px"></div></div>`;
   const { updated, list, offline, feedbackStand, tipps } = await loadRadar();
@@ -124,7 +124,7 @@ export async function radarView(view, { go }) {
     <button class="chip${tab === 'gemerkt' ? ' on' : ''}" data-k="gemerkt" type="button">Gemerkt</button>
    </div>
    <div class="stack" id="rlist" style="margin-top:8px"></div>
-   ${tipps?.length ? `<div class="sec"><div class="sec-h"><h2>Kostenlos, bringt bezahlte Jobs</h2></div><div class="list">${tipps.map(t => { const u = safeUrl(t.url); return `<${u ? 'a' : 'div'} class="li"${u ? ` href="${esc(u)}" target="_blank" rel="noopener"` : ''}><span class="tile">${ICON.star}</span><span class="li-main"><b>${esc(t.titel)}</b><small style="white-space:normal">${esc(t.text)}</small></span>${u ? ICON.ext : ''}</${u ? 'a' : 'div'}>`; }).join('')}</div></div>` : ''}
+   ${tipps?.length ? `<div class="sec"><div class="sec-h"><h2>Kostenlos, bringt bezahlte Jobs</h2><a href="#quellen">Alle Quellen</a></div><div class="list">${tipps.map(t => { const u = safeUrl(t.url); return `<${u ? 'a' : 'div'} class="li"${u ? ` href="${esc(u)}" target="_blank" rel="noopener"` : ''}><span class="tile">${ICON.star}</span><span class="li-main"><b>${esc(t.titel)}</b><small style="white-space:normal">${esc(t.text)}</small></span>${u ? ICON.ext : ''}</${u ? 'a' : 'div'}>`; }).join('')}</div></div>` : ''}
    <p class="legal" style="margin-top:20px">Nur Castings mit Gage. „Kostenlos“ heißt: Bewerbung direkt und ohne Kosten. „Mitgliedschaft“ heißt: Die Plattform verlangt zum Bewerben ein Bezahl-Konto.</p>`;
   const render = () => {
     const hidden = new Set(ls.get('radar.hidden', [])), saved = new Set(ls.get('radar.saved', []));
