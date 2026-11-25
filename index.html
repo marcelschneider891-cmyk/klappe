@@ -39,6 +39,35 @@
 <div class="snack" id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="pdfInput" accept="application/pdf,.pdf,.txt,text/plain" hidden>
 <input type="file" id="photoInput" accept="image/*" hidden>
+<script>
+// Notfall: Startet die App nicht (z. B. nach einem Update), Offline-Speicher leeren und neu laden.
+// Skripte, Takes, Tagebuch und Profil bleiben dabei erhalten.
+(function () {
+  function rescue() {
+    if (window.__klappeOk || document.getElementById('rescue')) return;
+    var v = document.getElementById('view');
+    if (v && v.children.length) return; // App zeigt etwas an, also läuft sie
+    var d = document.createElement('div');
+    d.id = 'rescue';
+    d.style.cssText = 'position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;background:#0F1113;color:#ECE8E1;font:16px/1.45 system-ui,sans-serif;text-align:center';
+    d.innerHTML = '<b style="font-size:1.2rem">Klappe startet gerade nicht</b><span style="color:#A7ACB4;max-width:320px">Meist hilft es, die App neu zu laden. Deine Skripte, Takes und dein Tagebuch bleiben erhalten.</span><button type="button" style="min-height:48px;padding:0 24px;border:0;border-radius:24px;background:#D4B072;color:#1F1708;font:600 1rem system-ui,sans-serif">App neu laden</button>';
+    d.querySelector('button').onclick = function () {
+      var jobs = [];
+      if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }));
+      if (window.caches) jobs.push(caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k !== 'klappe-share'; }).map(function (k) { return caches.delete(k); })); }));
+      Promise.all(jobs).catch(function () {}).then(function () { location.reload(); });
+    };
+    document.body.appendChild(d);
+  }
+  window.addEventListener('error', function (e) {
+    var t = e.target;
+    if (t && t !== window && t.tagName !== 'SCRIPT') return; // fehlende Bilder o. Ä. ignorieren
+    if (!window.__klappeOk) setTimeout(rescue, 300);
+  }, true);
+  window.addEventListener('unhandledrejection', function () { if (!window.__klappeOk) setTimeout(rescue, 300); });
+  setTimeout(rescue, 9000);
+})();
+</script>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>

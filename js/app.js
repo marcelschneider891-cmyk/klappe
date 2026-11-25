@@ -378,7 +378,7 @@ async function loadDemo() {
 // ---------- Start ----------
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 captureSetupLink();
-render();
+render().finally(() => { window.__klappeOk = true; document.getElementById('rescue')?.remove(); });
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState !== 'visible') return;
   const { list } = await loadRadar();

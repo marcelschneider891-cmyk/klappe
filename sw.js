@@ -1,5 +1,7 @@
-﻿// Offline-Speicher und "Teilen"-Ziel für PDFs aus der Mail
-const CACHE = 'klappe-v2';
+﻿// Offline-Speicher und "Teilen"-Ziel für PDFs aus der Mail.
+// Immer zuerst aus dem Netz laden (damit nach Updates nie alte und neue Teile gemischt werden),
+// nur offline aus dem Speicher.
+const CACHE = 'klappe-v3';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/app.js', './js/db.js', './js/ui.js', './js/parser.js', './js/speech.js', './js/runner.js',
@@ -9,11 +11,15 @@ const SHELL = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE)
+    .then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('klappe-v') && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys()
+    .then(keys => Promise.all(keys.filter(k => k.startsWith('klappe-v') && k !== CACHE).map(k => caches.delete(k))))
+    .then(() => self.clients.claim()));
 });
 
 self.addEventListener('fetch', e => {
@@ -36,24 +42,16 @@ self.addEventListener('fetch', e => {
   }
   if (e.request.method !== 'GET') return;
 
-  // Castings immer frisch, offline aus dem Speicher
-  if (url.origin === location.origin && url.pathname.includes('/radar/')) {
-    e.respondWith(fetch(e.request).then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; })
-      .catch(() => caches.match(e.request, { ignoreSearch: true })));
-    return;
-  }
-
-  // PDF-Leser von cdnjs nach dem ersten Laden offline halten
+  // PDF-Leser von cdnjs: feste Version, darf aus dem Speicher kommen
   if (url.hostname === 'cdnjs.cloudflare.com') {
     e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request).then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; })));
     return;
   }
 
-  // App selbst: sofort aus dem Speicher, im Hintergrund aktualisieren
+  // Eigene Dateien: Netz zuerst (am Server-Cache vorbei), offline aus dem Speicher
   if (url.origin === location.origin) {
-    e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(hit => {
-      const net = fetch(e.request).then(r => { if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); } return r; }).catch(() => hit);
-      return hit || net;
-    }));
+    e.respondWith(fetch(e.request, { cache: 'no-cache' })
+      .then(r => { if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); } return r; })
+      .catch(() => caches.match(e.request, { ignoreSearch: true }).then(hit => hit || caches.match('./index.html'))));
   }
 });
