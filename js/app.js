@@ -7,7 +7,7 @@ import { tapeView, reviewTake } from './tape.js';
 import { downloadTake, shareTake, trimSheet, toggleFav, compareSheet } from './takes.js';
 import { castingsView, loadAuditions, stats, statsHtml, auditionRow, auditionSheet } from './castings.js';
 import { radarView, loadRadar, newOnes, updateBadge, miniHtml } from './radar.js';
-import { profileView, profileEdit, settingsView, getProfile, getPhotoUrl, initials, captureSetupLink, syncRadar } from './profile.js';
+import { profileView, profileEdit, settingsView, getProfile, getPhotoUrl, initials, captureSetupLink, syncRadar, importBackupFile } from './profile.js';
 import { openVoiceSheet, voiceLabel } from './voicesheet.js';
 import { mastery, masteryLabel, scheduleReminders } from './learn.js';
 import { lastBackup, hasData } from './backup.js';
@@ -84,7 +84,7 @@ async function startView() {
   const lb = await lastBackup();
   const needBackup = (scripts.length + auditions.length > 0) && Date.now() - lb > 14 * 86400e3;
   view.innerHTML = `${largeTitle('Heute', esc(new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })) + (first ? ` · Hallo ${esc(first)}` : ''))}
-   ${needBackup ? `<a class="banner" href="#einstellungen"><span class="tile">${ICON.dl}</span><span class="li-main"><b>${lb ? 'Zeit für eine neue Sicherung' : 'Mach deine erste Sicherung'}</b><small>${lb ? 'Letzte Sicherung am ' + esc(fmtDate(new Date(lb).toISOString())) : 'Damit nichts verloren geht, falls dem Handy etwas passiert'}</small></span></a>` : ''}
+   ${needBackup ? `<a class="banner" href="#einstellungen"><span class="tile">${ICON.dl}</span><span class="li-main"><b>${lb ? 'Zeit für eine neue Sicherung' : 'Mach deine erste Sicherung'}</b><small>${lb ? 'Letzte Sicherung am ' + esc(fmtDate(new Date(lb).toISOString())) : 'Damit nichts verloren geht, falls dem Gerät etwas passiert'}</small></span></a>` : ''}
    ${due ? `<a class="due" href="#radar" data-open="${esc(due.id)}"><span class="tile">${ICON.clock}</span><span class="li-main"><b>${esc(due.titel)}</b><small>Frist ${esc(relDays(due.frist))}</small></span></a>` : ''}
    <section class="sec"><div class="sec-h"><h2>Neu im Radar${fresh.length ? ` · ${fresh.length}` : ''}</h2><a href="#radar">Alle</a></div>
     ${teaser.length ? `<div class="hscroll" id="teaser">${teaser.map(c => miniHtml(c, freshIds.has(c.id))).join('')}</div>`
@@ -137,7 +137,8 @@ function importSheet() {
     <button class="li" id="iTxt" type="button"><span class="tile">${ICON.edit}</span><span class="li-main"><b>Text einfügen</b><small>Aus einer Mail oder Notiz</small></span></button>
     <button class="li" id="iDemo" type="button"><span class="tile">${ICON.doc}</span><span class="li-main"><b>Demo-Szene</b><small>„Nachtschicht“ zum Ausprobieren</small></span></button>
    </div>
-   <p class="muted small">Direkt aus Gmail: PDF öffnen, Teilen, Klappe. Klappt, sobald die App installiert ist.</p>`, body => {
+   <p class="muted small only-touch">Direkt aus Gmail: PDF öffnen, Teilen, Klappe. Klappt, sobald die App installiert ist.</p>
+   <p class="muted small only-pc">Am PC: PDF, Fotos oder eine Sicherung einfach ins Klappe-Fenster ziehen.</p>`, body => {
     $('#iPdf', body).onclick = () => { closeSheet(); $('#pdfInput').click(); };
     $('#iCam', body).onclick = () => { closeSheet(); $('#camInput').click(); };
     $('#iTxt', body).onclick = pasteSheet;
@@ -418,6 +419,25 @@ async function loadDemo() {
   await db.put('scripts', s);
   go('skript-' + s.id);
 }
+
+// ---------- Dateien ins Fenster ziehen (PC) ----------
+let dragDepth = 0;
+const dropBox = () => document.querySelector('.drop') || document.body.appendChild(Object.assign(document.createElement('div'), { className: 'drop', textContent: 'Loslassen zum Importieren' }));
+window.addEventListener('dragenter', e => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { dragDepth++; dropBox().hidden = false; } });
+window.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; dropBox().hidden = true; } });
+window.addEventListener('dragover', e => { if ([...(e.dataTransfer?.types || [])].includes('Files')) e.preventDefault(); });
+window.addEventListener('drop', async e => {
+  if (!e.dataTransfer?.files?.length) return;
+  e.preventDefault(); dragDepth = 0; dropBox().hidden = true;
+  if (document.body.classList.contains('full')) return; // nicht während Proben oder Aufnahme
+  const files = [...e.dataTransfer.files];
+  const f = files[0];
+  if (/\.klappe$/i.test(f.name)) return importBackupFile(f, go);
+  const imgs = files.filter(x => /^image\//.test(x.type));
+  if (imgs.length > 1) return runOcr(imgs, imgs[0].name.replace(/\.\w+$/, ''));
+  if (/pdf|text|image/.test(f.type) || /\.(pdf|txt)$/i.test(f.name)) return importFile(f);
+  toast('Diese Datei kann Klappe nicht öffnen.');
+});
 
 // ---------- Start ----------
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

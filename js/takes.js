@@ -2,6 +2,7 @@
 import { db, uid, ls } from './db.js';
 import { $, $$, esc, ICON, openSheet, closeSheet, toast, buzz, fmtDate } from './ui.js';
 import { getProfile } from './profile.js';
+import { pickMime } from './tape.js';
 
 export const PATTERN_DEFAULT = '{Name}_{Rolle}_{Projekt}_Take{Nr}';
 export const pattern = () => ls.get('take.pattern', PATTERN_DEFAULT);
@@ -95,7 +96,7 @@ async function rerecord(blob, start, end, onProgress) {
   await new Promise(r => { v.onseeked = r; });
   const vs = (v.captureStream || v.mozCaptureStream).call(v);
   const stream = new MediaStream([...vs.getVideoTracks(), ...dest.stream.getAudioTracks()]);
-  const type = ['video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m)) || '';
+  const type = await pickMime();
   const rec = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 6_000_000 } : undefined);
   const parts = [];
   rec.ondataavailable = e => e.data.size && parts.push(e.data);

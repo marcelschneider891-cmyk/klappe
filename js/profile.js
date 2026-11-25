@@ -193,6 +193,19 @@ export async function profileEdit(view, { go }) {
   $('#peSave2', view).onclick = save;
 }
 
+// Sicherung einlesen (aus der Dateiauswahl oder per Ziehen und Ablegen am PC)
+export async function importBackupFile(f, go) {
+  try {
+    const b = await readBackup(f);
+    const s = summary(b.data);
+    const ok = await ask('Sicherung laden?', `Vom ${new Date(b.head.created).toLocaleDateString('de-DE')}: ${s.scripts} Skripte, ${s.auditions} Castings, ${s.takes} Takes. Gleiche Einträge werden überschrieben, alles andere bleibt.`, 'Laden');
+    if (!ok) return;
+    toast('Wird geladen …');
+    await applyBackup(b);
+    toast('Sicherung geladen'); go('start', true);
+  } catch (err) { toast(err.message || 'Die Datei konnte nicht gelesen werden.'); }
+}
+
 // ---------- Einstellungen ----------
 export async function settingsView(view, { go }) {
   setTop({ title: 'Einstellungen', back: true });
@@ -315,16 +328,7 @@ export async function settingsView(view, { go }) {
   $('#bkLoad', view).onclick = () => $('#backupInput').click();
   $('#backupInput').onchange = async e => {
     const f = e.target.files[0]; e.target.value = '';
-    if (!f) return;
-    try {
-      const b = await readBackup(f);
-      const s = summary(b.data);
-      const ok = await ask('Sicherung laden?', `Vom ${new Date(b.head.created).toLocaleDateString('de-DE')}: ${s.scripts} Skripte, ${s.auditions} Castings, ${s.takes} Takes. Gleiche Einträge werden überschrieben, alles andere bleibt.`, 'Laden');
-      if (!ok) return;
-      toast('Wird geladen …');
-      await applyBackup(b);
-      toast('Sicherung geladen'); go('start', true);
-    } catch (err) { toast(err.message || 'Die Datei konnte nicht gelesen werden.'); }
+    if (f) importBackupFile(f, go);
   };
   $('#sPersist', view)?.addEventListener('click', async () => { const ok = await navigator.storage?.persist?.(); toast(ok ? 'Geschützt' : 'Android hat abgelehnt. Installiere die App auf dem Startbildschirm und versuch es nochmal.'); go('einstellungen', true); });
 }

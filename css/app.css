@@ -388,3 +388,33 @@ input[type=range]{width:100%;accent-color:var(--primary)}
 .banner .tile{background:rgba(148,182,221,.16);color:var(--info)}
 .banner b{display:block;color:var(--on);font-weight:600}
 .banner small{color:var(--info)}
+
+/* ---------- PC und Tablet: Navigation als Leiste links, Dialoge mittig ---------- */
+@media (min-width: 900px) {
+ :root{--rail:96px}
+ .nav{top:0;bottom:0;right:auto;width:var(--rail);height:auto;display:flex;flex-direction:column;justify-content:flex-start;gap:12px;padding:calc(88px + env(safe-area-inset-top,0px)) 0 24px;border-right:1px solid var(--outline)}
+ .nav a{padding:4px 0}
+ body{padding-left:var(--rail)}
+ body.full{padding-left:0}
+ .view{padding-bottom:120px}
+ .bar{left:var(--rail);bottom:0;border-radius:20px 20px 0 0;max-width:720px;margin:0 auto;right:0}
+ .fab{bottom:32px;right:32px}
+ .snack{bottom:24px;left:calc(var(--rail) + 24px)}
+ .sheet{align-items:center}
+ .sheet-card{border-radius:28px;max-height:86vh;padding-bottom:24px;animation:pop .2s cubic-bezier(.2,0,0,1)}
+ .handle{display:none}
+ .sheet-head{padding-top:16px}
+ .hscroll{margin:0;padding:0 0 4px}
+ .chips{margin:0;padding-inline:0}
+ .takes{margin:0;padding:0 0 4px}
+ .li:hover::after,.rcard:hover::after,.btn:hover::after,.chip:hover::after,.ic:hover::after{opacity:.06}
+ .rh-lines{padding-left:max(10vw,24px);padding-right:max(10vw,24px)}
+ .rl .x{font-size:1.5rem}
+}
+@keyframes pop{from{transform:scale(.96);opacity:0}}
+.kbd{display:inline-block;min-width:22px;padding:1px 6px;border-radius:5px;border:1px solid var(--outline-2);font:600 .75rem var(--f);text-align:center;color:var(--on-2)}
+.drop{position:fixed;inset:0;z-index:150;display:flex;align-items:center;justify-content:center;background:rgba(15,17,19,.88);border:3px dashed var(--primary);color:var(--on);font:600 1.3rem var(--f);pointer-events:none}
+.tp-keys{position:absolute;left:max(14px,env(safe-area-inset-left,0px));bottom:calc(112px + env(safe-area-inset-bottom,0px));display:flex;gap:10px;flex-wrap:wrap;color:#fff;font-size:.78rem;opacity:.85}
+.tp-keys .kbd{color:#fff;border-color:rgba(255,255,255,.5)}
+@media (hover: none) { .tp-keys, .only-pc { display:none } }
+@media (hover: hover) and (pointer: fine) { .only-touch { display:none!important } }

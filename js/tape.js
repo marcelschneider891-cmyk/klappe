@@ -14,11 +14,39 @@ export const LEVELS = [
   { k: 'stumm', l: 'Stumm', v: 0, d: 'Im Video bist nur du zu hören' }
 ];
 
-function pickMime() {
-  // Kein fester Codec: Chrome nimmt, was das Handy wirklich kann (fester H.264-Codec lieferte auf manchen Geräten leere Videos)
-  const c = ['video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
-  return c.find(m => window.MediaRecorder?.isTypeSupported?.(m)) || '';
+// Videoformat: am liebsten MP4 mit H.264 (spielt überall, auch bei Casting-Büros mit Mac).
+// Manche Geräte melden H.264 als möglich, liefern aber leere Dateien. Darum einmal kurz ausprobieren.
+const H264 = 'video/mp4;codecs=avc1.42E01E,mp4a.40.2';
+const FALLBACK = ['video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+export async function pickMime() {
+  const key = navigator.userAgent;
+  const saved = ls.get('rec.mime', null);
+  if (saved && saved.ua === key) return saved.mime;
+  let mime = FALLBACK.find(m => window.MediaRecorder?.isTypeSupported?.(m)) || '';
+  if (window.MediaRecorder?.isTypeSupported?.(H264) && await probe(H264)) mime = H264;
+  ls.set('rec.mime', { ua: key, mime });
+  return mime;
 }
+async function probe(type) {
+  try {
+    const c = document.createElement('canvas'); c.width = 320; c.height = 180;
+    const g = c.getContext('2d');
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ac.createOscillator(), d = ac.createMediaStreamDestination(); osc.connect(d); osc.start();
+    const s = new MediaStream([...c.captureStream(15).getVideoTracks(), ...d.stream.getAudioTracks()]);
+    const rec = new MediaRecorder(s, { mimeType: type });
+    let bytes = 0;
+    rec.ondataavailable = e => { bytes += e.data.size; };
+    const iv = setInterval(() => { g.fillStyle = `hsl(${Date.now() % 360},50%,50%)`; g.fillRect(0, 0, 320, 180); }, 60);
+    const done = new Promise(r => { rec.onstop = r; });
+    rec.start(200);
+    await new Promise(r => setTimeout(r, 700));
+    rec.stop(); await done; clearInterval(iv); osc.stop(); ac.close(); s.getTracks().forEach(t => t.stop());
+    return bytes > 1000;
+  } catch { return false; }
+}
+
+const isTouch = () => matchMedia('(hover: none)').matches;
 
 // Tonmischung fürs Video: Mikro + (bei ElevenLabs/Aufnahme) sauber eingemischter Partner
 function makeMixer(cam, level) {
@@ -56,13 +84,14 @@ export async function tapeView(view, script, { exit, profile }) {
   <div class="tp">
    <video id="cam" playsinline autoplay muted></video>
    <div class="tp-tap" id="tpTap"></div>
-   <div class="tp-prompt" id="tpPrompt"><div class="w">Bereit</div><div class="x">Tippe auf Aufnahme. Nach dem Countdown startet die Szene.</div></div>
+   <div class="tp-prompt" id="tpPrompt"><div class="w">Bereit</div><div class="x">${isTouch() ? 'Tippe auf Aufnahme' : 'Klick auf Aufnahme oder drück die Leertaste'}. Nach dem Countdown startet die Szene.</div></div>
+   <div class="tp-keys"><span><span class="kbd">Leertaste</span> Aufnahme</span><span><span class="kbd">→</span> Weiter</span><span><span class="kbd">L</span> Line!</span><span><span class="kbd">Esc</span> Schließen</span></div>
    <div class="tp-top">
     <button class="ic" id="tpExit" type="button" aria-label="Schließen">${ICON.x}</button>
     <div class="row" style="gap:6px"><button class="ic" id="tpEye" type="button" aria-label="Textanzeige wechseln">${ICON.eye}</button><button class="ic" id="tpGear" type="button" aria-label="Einstellungen">${ICON.tune}</button></div>
    </div>
    <div class="tp-time" id="tpTime" hidden>0:00</div>
-   <div class="rotate" id="tpRot">Handy quer halten, wie beim echten Self-Tape</div>
+   <div class="rotate only-touch" id="tpRot">Handy quer halten, wie beim echten Self-Tape</div>
    <div class="count" id="tpCount" hidden></div>
    <div class="tp-ctl">
     <button class="tp-chip" id="tpVoice" type="button"></button>
@@ -81,18 +110,26 @@ export async function tapeView(view, script, { exit, profile }) {
   async function startCam() {
     stream?.getTracks().forEach(t => t.stop());
     vad?.close(); mixer?.close(); reader = null;
+    const vid = { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } };
+    const aud = { echoCancellation: false, noiseSuppression: false, autoGainControl: true };
+    // Gewählte Kamera / gewähltes Mikro (PC mit Webcam, externem Mikro usw.), sonst Front- oder Rückkamera
+    if (opts.camId) vid.deviceId = { exact: opts.camId }; else vid.facingMode = opts.facing;
+    if (opts.micId) aud.deviceId = { exact: opts.micId };
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: opts.facing, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true }
-      });
+      try { stream = await navigator.mediaDevices.getUserMedia({ video: vid, audio: aud }); }
+      catch (e) {
+        if (!opts.camId && !opts.micId) throw e;
+        opts.camId = ''; opts.micId = ''; ls.set('tape.opts', opts); // Gerät nicht mehr da: Standard nehmen
+        stream = await navigator.mediaDevices.getUserMedia({ video: { ...vid, deviceId: undefined, facingMode: opts.facing }, audio: { ...aud, deviceId: undefined } });
+      }
     } catch {
       prompt.innerHTML = '<div class="w">Kamera</div><div class="x">Kein Zugriff auf Kamera oder Mikro. Erlaube beides in den Chrome-Einstellungen für diese Seite.</div>';
       recBtn.disabled = true;
       return;
     }
     video.srcObject = stream;
-    video.classList.toggle('mirror', opts.facing === 'user');
+    const facing = stream.getVideoTracks()[0]?.getSettings?.().facingMode;
+    video.classList.toggle('mirror', facing ? facing === 'user' : (opts.camId ? true : opts.facing === 'user'));
     vad = makeVAD(stream);
     mixer = makeMixer(stream, level().v);
     reader = new Reader(script, { mixer });
@@ -135,7 +172,7 @@ export async function tapeView(view, script, { exit, profile }) {
     $('#tpVoice', view).hidden = true; $('#tpFlip', view).hidden = true;
     await countdown();
     if (!recording) return;
-    const mime = pickMime();
+    const mime = await mimeP;
     chunks = [];
     rec = new MediaRecorder(mixer.stream, mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined);
     rec.ondataavailable = e => e.data.size && chunks.push(e.data);
@@ -177,7 +214,8 @@ export async function tapeView(view, script, { exit, profile }) {
     const dur = Math.round((Date.now() - t0) / 1000);
     const n = (await db.all('takes')).filter(t => t.scriptId === script.id).length + 1;
     const take = { id: uid(), scriptId: script.id, n, created: new Date().toISOString(), type, dur, blob, voice: scriptVoice(script).source, level: opts.level };
-    try { await db.put('takes', take); } catch { toast('Speicher voll. Take bitte gleich aufs Handy speichern.'); }
+    if (blob.size < 2000) { toast('Die Aufnahme ist leer geblieben. Bitte nochmal versuchen.'); ls.set('rec.mime', null); return; }
+    try { await db.put('takes', take); } catch { toast('Speicher voll. Take bitte gleich herunterladen.'); }
     reviewTake(take, script);
   }
 
@@ -207,23 +245,50 @@ export async function tapeView(view, script, { exit, profile }) {
   recBtn.onclick = () => { buzz(); recording ? stopRec() : startRec(); };
   $('#tpVoice', view).onclick = voiceSheet;
   $('#tpTap', view).onclick = () => { if (recording && runner) runner.next(); };
-  $('#tpFlip', view).onclick = async () => { if (recording) return; opts.facing = opts.facing === 'user' ? 'environment' : 'user'; ls.set('tape.opts', opts); await startCam(); };
+  $('#tpFlip', view).onclick = async () => {
+    if (recording) return;
+    // Mehrere Kameras (PC, Handy mit mehreren Linsen): der Reihe nach durchschalten
+    const cams = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+    if (cams.length > 2 || (cams.length === 2 && !isTouch())) {
+      const cur = stream?.getVideoTracks()[0]?.getSettings?.().deviceId;
+      const i = cams.findIndex(c => c.deviceId === cur);
+      opts.camId = cams[(i + 1) % cams.length].deviceId;
+      toast(cams[(i + 1) % cams.length].label || 'Kamera gewechselt');
+    } else { opts.camId = ''; opts.facing = opts.facing === 'user' ? 'environment' : 'user'; }
+    ls.set('tape.opts', opts);
+    await startCam();
+  };
+  // Tastatur am PC
+  const keys = e => {
+    if (!document.getElementById('cam') || !$('#sheet').hidden || /input|select|textarea/i.test(e.target.tagName)) return;
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); recBtn.click(); }
+    else if (e.key === 'ArrowRight' || e.key === 'n') { if (recording && runner) runner.next(); }
+    else if (e.key === 'l' || e.key === 'L') { if (recording && runner) runner.feed(); }
+    else if (e.key === 'Escape') { $('#tpExit', view).click(); }
+  };
+  document.addEventListener('keydown', keys);
   $('#tpEye', view).onclick = () => {
     const order = ['zeigen', 'anfang', 'aus'];
     opts.hide = order[(order.indexOf(opts.hide) + 1) % 3];
     ls.set('tape.opts', opts);
     toast({ zeigen: 'Dein Text wird angezeigt', anfang: 'Nur Anfangsbuchstaben', aus: 'Dein Text ist versteckt' }[opts.hide]);
   };
-  $('#tpGear', view).onclick = () => tapeSettings(opts);
-  const leave = () => { stopRec(); vad?.close(); mixer?.close(); stream?.getTracks().forEach(t => t.stop()); tts.cancel(); };
+  $('#tpGear', view).onclick = () => tapeSettings(opts, () => startCam());
+  const mimeP = pickMime(); // vorab testen, damit die Aufnahme ohne Wartezeit startet
+  const leave = () => { document.removeEventListener('keydown', keys); stopRec(); vad?.close(); mixer?.close(); stream?.getTracks().forEach(t => t.stop()); tts.cancel(); };
   $('#tpExit', view).onclick = () => { leave(); exit(); };
   return leave;
 }
 
-function tapeSettings(opts) {
+async function tapeSettings(opts, restartCam) {
+  const devs = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+  const cams = devs.filter(d => d.kind === 'videoinput'), mics = devs.filter(d => d.kind === 'audioinput' && d.deviceId !== 'communications');
+  const devSel = (id, list, cur, std) => `<select class="inp" id="${id}"><option value="">${std}</option>${list.map((d, i) => `<option value="${esc(d.deviceId)}"${d.deviceId === cur ? ' selected' : ''}>${esc(d.label || (id === 'tCam' ? 'Kamera ' : 'Mikrofon ') + (i + 1))}</option>`).join('')}</select>`;
   openSheet('Aufnahme', `
+   <div class="field"><label for="tCam">Kamera</label>${devSel('tCam', cams, opts.camId, 'Standard (Frontkamera)')}</div>
+   <div class="field"><label for="tMic">Mikrofon</label>${devSel('tMic', mics, opts.micId, 'Standard')}</div>
    <div class="field"><label for="tL">Wann geht es nach deinem Satz weiter?</label>
-    <select class="inp" id="tL">${[['vad', 'Pause erkennen'], ['tap', 'Ich tippe auf den Bildschirm'], ['auto', 'Nach Zeit']].map(([k, l]) => `<option value="${k}"${opts.listen === k ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
+    <select class="inp" id="tL">${[['vad', 'Pause erkennen'], ['tap', 'Ich tippe oder drücke →'], ['auto', 'Nach Zeit']].map(([k, l]) => `<option value="${k}"${opts.listen === k ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
    <div class="field"><label for="tP">Pause bis zum Einsatz: <b id="tPV">${(opts.pause / 1000).toFixed(1)} s</b></label><input id="tP" type="range" min="500" max="2500" step="100" value="${opts.pause}"></div>
    <div class="field"><label for="tR">Sprechtempo Partner: <b id="tRV">${opts.rate.toFixed(2)}×</b></label><input id="tR" type="range" min="0.7" max="1.4" step="0.05" value="${opts.rate}"></div>
    <div class="set card"><div class="li-main"><b>Mit Vorstellung beginnen</b><small>Name, Größe, Wohnort als Slate</small></div><label class="switch"><input type="checkbox" id="tS"${opts.slate ? ' checked' : ''} aria-label="Mit Vorstellung beginnen"><i></i></label></div>
@@ -233,8 +298,11 @@ function tapeSettings(opts) {
       $('#tRV', body).textContent = (+$('#tR', body).value).toFixed(2) + '×';
     });
     $('#tSave', body).onclick = () => {
+      const devChanged = $('#tCam', body).value !== (opts.camId || '') || $('#tMic', body).value !== (opts.micId || '');
+      opts.camId = $('#tCam', body).value; opts.micId = $('#tMic', body).value;
       opts.listen = $('#tL', body).value; opts.pause = +$('#tP', body).value; opts.rate = +$('#tR', body).value; opts.slate = $('#tS', body).checked;
       ls.set('tape.opts', opts); closeSheet(); toast('Gespeichert');
+      if (devChanged) restartCam?.();
     };
   });
 }

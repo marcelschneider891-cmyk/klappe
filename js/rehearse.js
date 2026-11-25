@@ -25,7 +25,7 @@ export async function rehearseView(view, script, { exit }) {
     <button class="ic" id="rhVoice" type="button" aria-label="Partnerstimme">${ICON.voice}</button><button class="ic" id="rhGear" type="button" aria-label="Einstellungen">${ICON.tune}</button>
    </div>
    <div class="rh-lines" id="rhLines">${script.blocks.map((b, i) => lineHtml(b, i, me)).join('')}</div>
-   <div class="rh-state" id="rhState">Tippe auf Play. Du bist ${esc(me.join(' / '))}.</div>
+   <div class="rh-state" id="rhState">Tippe auf Play. Du bist ${esc(me.join(' / '))}.<span class="only-pc muted small">&nbsp;· <span class="kbd">Leertaste</span> Play <span class="kbd">→</span> Weiter <span class="kbd">L</span> Line!</span></div>
    <div class="rh-ctl">
     <button class="rc" id="rhHide" type="button" aria-label="Textanzeige wechseln">${ICON.eye}</button>
     <button class="rc" id="rhPrev" type="button" aria-label="Zurück">${ICON.prev}</button>
@@ -140,7 +140,17 @@ export async function rehearseView(view, script, { exit }) {
     if (wasPlaying) runner.play(at);
   });
   $('#rhVoice', view).onclick = () => { runner.pause(); openVoiceSheet(script, async () => { await build(); toast('Partnerstimme: ' + voiceLabel(script)); }); };
-  const leave = () => { runner?.destroy(); vad?.close(); mic?.getTracks().forEach(t => t.stop()); releaseWake(); };
+  // Tastatur am PC: Leertaste Play/Pause, Pfeile vor/zurück, L = Line!, Esc = beenden
+  const keys = e => {
+    if (!document.getElementById('rhLines') || !$('#sheet').hidden || /input|select|textarea/i.test(e.target.tagName)) return;
+    if (e.key === ' ') { e.preventDefault(); playBtn.click(); }
+    else if (e.key === 'ArrowRight') runner.next();
+    else if (e.key === 'ArrowLeft') runner.prev();
+    else if (e.key === 'l' || e.key === 'L') runner.feed();
+    else if (e.key === 'Escape') $('#rhExit', view).click();
+  };
+  document.addEventListener('keydown', keys);
+  const leave = () => { document.removeEventListener('keydown', keys); runner?.destroy(); vad?.close(); mic?.getTracks().forEach(t => t.stop()); releaseWake(); };
   $('#rhExit', view).onclick = () => { leave(); exit(); };
   return leave;
 }

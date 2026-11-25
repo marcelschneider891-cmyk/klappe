@@ -1,7 +1,7 @@
 // Offline-Speicher und "Teilen"-Ziel für PDFs aus der Mail.
 // Immer zuerst aus dem Netz laden (damit nach Updates nie alte und neue Teile gemischt werden),
 // nur offline aus dem Speicher.
-const CACHE = 'klappe-v4';
+const CACHE = 'klappe-v5';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/app.js', './js/db.js', './js/ui.js', './js/parser.js', './js/speech.js', './js/runner.js',
