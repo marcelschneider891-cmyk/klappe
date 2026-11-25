@@ -49,6 +49,24 @@ async function probe(type) {
 
 const isTouch = () => matchMedia('(hover: none)').matches;
 
+// Qualitätsstufen: Auflösung (Querformat) und Bitrate
+export const QUAL = {
+  spar: { l: 'Sparsam (720p)', w: 1280, h: 720, bits: 5_000_000 },
+  hoch: { l: 'Hoch (1080p)', w: 1920, h: 1080, bits: 12_000_000 },
+  max: { l: 'Maximal (4K, falls möglich)', w: 3840, h: 2160, bits: 30_000_000 }
+};
+
+// Im Querformat das Handy-Bild quer festhalten (geht im Vollbild bzw. als installierte App)
+async function lockLandscape() {
+  if (!isTouch() || !screen.orientation?.lock) return;
+  if (ls.get('tape.opts', {}).format === 'hoch') return;
+  try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); await screen.orientation.lock('landscape'); } catch {}
+}
+function unlockLandscape() {
+  try { screen.orientation?.unlock?.(); } catch {}
+  try { if (document.fullscreenElement) document.exitFullscreen(); } catch {}
+}
+
 // Tonmischung fürs Video: Mikro + (bei ElevenLabs/Aufnahme) sauber eingemischter Partner
 function makeMixer(cam, level) {
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -76,7 +94,7 @@ function makeMixer(cam, level) {
 }
 
 export async function tapeView(view, script, { exit, profile }) {
-  const opts = Object.assign({ listen: 'vad', hide: 'zeigen', rate: 1, pause: 1000, cueGap: 150, slate: false, facing: 'user', level: 'laut', eyeline: 'links', guide: true }, ls.get('tape.opts', {}));
+  const opts = Object.assign({ listen: 'vad', hide: 'zeigen', rate: 1, pause: 1000, cueGap: 150, slate: false, facing: 'user', level: 'laut', eyeline: 'links', guide: true, format: 'quer', quality: 'hoch' }, ls.get('tape.opts', {}));
   const me = script.me || [];
   let checker = null;
   let stream = null, vad = null, mixer = null, reader = null, rec = null, chunks = [], t0 = 0, timer = null, runner = null, recording = false, wake = null;
@@ -96,6 +114,7 @@ export async function tapeView(view, script, { exit, profile }) {
     <div class="row" style="gap:6px"><button class="ic" id="tpEye" type="button" aria-label="Textanzeige wechseln">${ICON.eye}</button><button class="ic" id="tpGear" type="button" aria-label="Einstellungen">${ICON.tune}</button></div>
    </div>
    <div class="tp-time" id="tpTime" hidden>0:00</div>
+   <div class="tp-res" id="tpRes"></div>
    <div class="rotate only-touch" id="tpRot">Handy quer halten, wie beim echten Self-Tape</div>
    <div class="count" id="tpCount" hidden></div>
    <div class="tp-ctl">
@@ -117,14 +136,27 @@ export async function tapeView(view, script, { exit, profile }) {
     $('#tpGuide', view).hidden = recording || !opts.guide;
     const look = $('#tpLook', view);
     look.hidden = opts.eyeline === 'aus';
+    $('#tpRot', view).hidden = recording || opts.format === 'hoch';
     look.className = 'tp-eye ' + (opts.eyeline === 'rechts' ? 'r' : 'l');
   }
+
+  function showRes() {
+    const s = stream?.getVideoTracks()[0]?.getSettings?.() || {};
+    const w = s.width || 0, h = s.height || 0;
+    if (!w) return;
+    const p = Math.min(w, h);
+    $('#tpRes', view).textContent = `${p >= 2160 ? '4K' : p >= 1080 ? '1080p' : p >= 720 ? '720p' : p + 'p'} · ${Math.round(s.frameRate || 30)} fps · ${w > h ? 'quer' : 'hoch'}`;
+  }
+  // Wenn das Handy gedreht wird, ändert sich das Kamerabild: Anzeige nachziehen
+  const onRot = () => setTimeout(showRes, 600);
+  screen.orientation?.addEventListener?.('change', onRot);
 
   async function startCam() {
     stream?.getTracks().forEach(t => t.stop());
     vad?.close(); mixer?.close(); reader = null;
-    const vid = { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } };
-    const aud = { echoCancellation: false, noiseSuppression: false, autoGainControl: true };
+    const q = QUAL[opts.quality] || QUAL.hoch, quer = opts.format !== 'hoch';
+    const vid = { width: { ideal: quer ? q.w : q.h }, height: { ideal: quer ? q.h : q.w }, aspectRatio: { ideal: quer ? 16 / 9 : 9 / 16 }, frameRate: { ideal: 30, min: 24 } };
+    const aud = { echoCancellation: false, noiseSuppression: false, autoGainControl: true, channelCount: 1, sampleRate: 48000 };
     // Gewählte Kamera / gewähltes Mikro (PC mit Webcam, externem Mikro usw.), sonst Front- oder Rückkamera
     if (opts.camId) vid.deviceId = { exact: opts.camId }; else vid.facingMode = opts.facing;
     if (opts.micId) aud.deviceId = { exact: opts.micId };
@@ -141,6 +173,7 @@ export async function tapeView(view, script, { exit, profile }) {
       return;
     }
     video.srcObject = stream;
+    showRes();
     const facing = stream.getVideoTracks()[0]?.getSettings?.().facingMode;
     video.classList.toggle('mirror', facing ? facing === 'user' : (opts.camId ? true : opts.facing === 'user'));
     vad = makeVAD(stream, { onLevel: (v, rms, talking) => checker?.onLevel(v, rms, talking) });
@@ -180,6 +213,7 @@ export async function tapeView(view, script, { exit, profile }) {
   async function startRec() {
     if (!stream || !mixer) return;
     if (!window.MediaRecorder) { toast('Dieser Browser kann nicht aufnehmen.'); return; }
+    await lockLandscape(); // direkt beim Tipp, sonst lässt Chrome das Drehen nicht zu
     try { wake = await navigator.wakeLock?.request('screen'); } catch {}
     await mixer.resume();
     recBtn.classList.add('on'); recBtn.setAttribute('aria-label', 'Aufnahme stoppen');
@@ -190,7 +224,8 @@ export async function tapeView(view, script, { exit, profile }) {
     if (!recording) return;
     const mime = await mimeP;
     chunks = [];
-    rec = new MediaRecorder(mixer.stream, mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined);
+    const q = QUAL[opts.quality] || QUAL.hoch;
+    rec = new MediaRecorder(mixer.stream, mime ? { mimeType: mime, videoBitsPerSecond: q.bits, audioBitsPerSecond: 192_000 } : undefined);
     rec.ondataavailable = e => e.data.size && chunks.push(e.data);
     rec.onstop = saveTake;
     rec.start(1000);
@@ -212,6 +247,7 @@ export async function tapeView(view, script, { exit, profile }) {
 
   function stopRec() {
     recording = false;
+    unlockLandscape();
     layout();
     runner?.destroy(); runner = null;
     mixer?.partner(false);
@@ -292,7 +328,7 @@ export async function tapeView(view, script, { exit, profile }) {
   };
   $('#tpGear', view).onclick = () => tapeSettings(opts, () => startCam(), layout);
   const mimeP = pickMime(); // vorab testen, damit die Aufnahme ohne Wartezeit startet
-  const leave = () => { checker?.stop(); document.removeEventListener('keydown', keys); stopRec(); vad?.close(); mixer?.close(); stream?.getTracks().forEach(t => t.stop()); tts.cancel(); };
+  const leave = () => { screen.orientation?.removeEventListener?.('change', onRot); unlockLandscape(); checker?.stop(); document.removeEventListener('keydown', keys); stopRec(); vad?.close(); mixer?.close(); stream?.getTracks().forEach(t => t.stop()); tts.cancel(); };
   $('#tpExit', view).onclick = () => { leave(); exit(); };
   return leave;
 }
@@ -307,6 +343,8 @@ async function tapeSettings(opts, restartCam, relayout) {
    <div class="field"><label for="tE">Blickrichtung (wo dein Partner stünde)</label><select class="inp" id="tE">${[['links', 'Links neben der Kamera'], ['rechts', 'Rechts neben der Kamera'], ['aus', 'Keine Markierung']].map(([k, l]) => `<option value="${k}"${opts.eyeline === k ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
    <div class="set card"><div class="li-main"><b>Bildrahmen einblenden</b><small>Hilfslinien für Augenhöhe und Kopf, nur vor der Aufnahme</small></div><label class="switch"><input type="checkbox" id="tG"${opts.guide ? ' checked' : ''} aria-label="Bildrahmen einblenden"><i></i></label></div>
    <div class="field"><label for="tL">Wann geht es nach deinem Satz weiter?</label>
+    <div class="grid2" style="margin-bottom:14px"><div class="field"><label for="tF">Format</label><select class="inp" id="tF">${[['quer', 'Quer (16:9)'], ['hoch', 'Hoch (9:16)']].map(([k, l]) => `<option value="${k}"${opts.format === k ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
+     <div class="field"><label for="tQ">Qualität</label><select class="inp" id="tQ">${Object.entries(QUAL).map(([k, v]) => `<option value="${k}"${opts.quality === k ? ' selected' : ''}>${v.l}</option>`).join('')}</select></div></div>
     <select class="inp" id="tL">${[['vad', 'Pause erkennen'], ['tap', 'Ich tippe oder drücke →'], ['auto', 'Nach Zeit']].map(([k, l]) => `<option value="${k}"${opts.listen === k ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
    <div class="field"><label for="tP">Pause bis zum Einsatz: <b id="tPV">${(opts.pause / 1000).toFixed(1)} s</b></label><input id="tP" type="range" min="500" max="2500" step="100" value="${opts.pause}"></div>
    <div class="field"><label for="tR">Sprechtempo Partner: <b id="tRV">${opts.rate.toFixed(2)}×</b></label><input id="tR" type="range" min="0.7" max="1.4" step="0.05" value="${opts.rate}"></div>
@@ -321,6 +359,9 @@ async function tapeSettings(opts, restartCam, relayout) {
       opts.camId = $('#tCam', body).value; opts.micId = $('#tMic', body).value;
       opts.listen = $('#tL', body).value; opts.pause = +$('#tP', body).value; opts.rate = +$('#tR', body).value; opts.slate = $('#tS', body).checked;
       opts.eyeline = $('#tE', body).value; opts.guide = $('#tG', body).checked;
+      const camChanged = $('#tF', body).value !== opts.format || $('#tQ', body).value !== opts.quality;
+      opts.format = $('#tF', body).value; opts.quality = $('#tQ', body).value;
+      if (camChanged) restartCam?.();
       ls.set('tape.opts', opts); closeSheet(); toast('Gespeichert'); relayout?.();
       if (devChanged) restartCam?.();
     };
@@ -331,7 +372,7 @@ export function reviewTake(take, script) {
   const url = URL.createObjectURL(take.blob);
   const lv = LEVELS.find(l => l.k === take.level);
   openSheet(`Take ${take.n}`, `
-   <video src="${url}" controls playsinline style="width:100%;border-radius:12px;background:#000;aspect-ratio:16/9"></video>
+   <video src="${url}" controls playsinline style="width:100%;max-height:62vh;border-radius:12px;background:#000"></video>
    <p class="muted small">${take.dur} Sekunden${lv ? ` · Partner im Video: ${esc(lv.l.toLowerCase())}` : ''}${take.trimOf ? ` · zugeschnitten aus Take ${take.trimOf}` : ''} · nur auf diesem Handy</p>
    <div class="grid2">
     <button class="btn out" id="tkSave" type="button">${ICON.dl} Speichern</button>

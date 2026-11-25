@@ -97,7 +97,7 @@ async function rerecord(blob, start, end, onProgress) {
   const vs = (v.captureStream || v.mozCaptureStream).call(v);
   const stream = new MediaStream([...vs.getVideoTracks(), ...dest.stream.getAudioTracks()]);
   const type = await pickMime();
-  const rec = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 6_000_000 } : undefined);
+  const rec = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 12_000_000, audioBitsPerSecond: 192_000 } : undefined);
   const parts = [];
   rec.ondataavailable = e => e.data.size && parts.push(e.data);
   const stopped = new Promise(r => { rec.onstop = r; });

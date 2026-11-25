@@ -5,7 +5,7 @@ import { getProfile } from './profile.js';
 import { pickMime, reviewTake } from './tape.js';
 import { downloadTake, shareTake } from './takes.js';
 
-const W = 1280, H = 720;
+const W = 1920, H = 1080;
 const REEL = { title: 'Showreel', me: [] };
 
 export async function showreelView(view, { go }) {
@@ -86,8 +86,8 @@ function card(g, { name, sub, contact }, end) {
   grd.addColorStop(0, 'rgba(212,176,114,.25)'); grd.addColorStop(1, 'rgba(212,176,114,0)');
   g.fillStyle = grd; g.fillRect(0, 0, W, H);
   g.textAlign = 'center';
-  g.fillStyle = '#ECE8E1'; g.font = '700 72px Archivo, sans-serif'; g.fillText(name || '', W / 2, H / 2 - (end ? 30 : 0));
-  g.fillStyle = '#D4B072'; g.font = '500 32px Archivo, sans-serif'; g.fillText(end ? contact : sub || '', W / 2, H / 2 + (end ? 40 : 60));
+  g.fillStyle = '#ECE8E1'; g.font = '700 108px Archivo, sans-serif'; g.fillText(name || '', W / 2, H / 2 - (end ? 45 : 0));
+  g.fillStyle = '#D4B072'; g.font = '500 48px Archivo, sans-serif'; g.fillText(end ? contact : sub || '', W / 2, H / 2 + (end ? 60 : 90));
 }
 
 async function render(clips, txt, onProgress) {
@@ -99,7 +99,7 @@ async function render(clips, txt, onProgress) {
   await ac.resume();
   const stream = new MediaStream([...c.captureStream(30).getVideoTracks(), ...dest.stream.getAudioTracks()]);
   const type = await pickMime();
-  const rec = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 5_000_000 } : undefined);
+  const rec = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 12_000_000, audioBitsPerSecond: 192_000 } : undefined);
   const parts = [];
   rec.ondataavailable = e => e.data.size && parts.push(e.data);
   const stopped = new Promise(r => { rec.onstop = r; });
