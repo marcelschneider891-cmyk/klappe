@@ -2,7 +2,7 @@
 import { db, ls } from './db.js';
 import { $, $$, esc, ICON, setTop, setFab, largeTitle, toast, buzz, openSheet, closeSheet, fmtDate, safeUrl, ask } from './ui.js';
 import { tts, srAvailable } from './speech.js';
-import { SOURCES, defaults as voiceDefaults, setDefaults as setVoiceDefaults, eleven } from './voices.js';
+import { SOURCES, defaults as voiceDefaults, setDefaults as setVoiceDefaults, eleven, cleanKey } from './voices.js';
 import { defaultOpts } from './rehearse.js';
 import { remindCfg, setRemindCfg, scheduleReminders } from './learn.js';
 import { syncSection } from './syncui.js';
@@ -302,11 +302,11 @@ export async function settingsView(view, { go }) {
   };
   drawElVoice();
   $('#sKeySave', view).onclick = async () => {
-    const k = $('#sKey', view).value.trim();
-    if (!k) return toast('Füge zuerst den Schlüssel ein.');
-    eleven.setKey(k);
-    try { await eleven.voices(); $('#elState', view).textContent = 'Verbunden'; $('#elState', view).className = 'tag ok'; $('#sKeyDel', view).disabled = false; toast('ElevenLabs verbunden'); drawElVoice(); }
-    catch (err) { toast(err.message); }
+    const k = $('#sKey', view).value;
+    const b = $('#sKeySave', view); b.disabled = true;
+    try { await eleven.checkAndSave(k); $('#sKey', view).value = eleven.key(); $('#elState', view).textContent = 'Verbunden'; $('#elState', view).className = 'tag ok'; $('#sKeyDel', view).disabled = false; toast('ElevenLabs verbunden'); drawElVoice(); }
+    catch (err) { toast(err.message + (eleven.key() && eleven.key() !== cleanKey(k) ? ' Dein bisheriger Schlüssel bleibt gespeichert.' : '')); }
+    finally { b.disabled = false; }
   };
   $('#sKeyDel', view).onclick = () => { eleven.setKey(''); $('#sKey', view).value = ''; go('einstellungen', true); toast('Schlüssel entfernt'); };
   $('#sTest', view)?.addEventListener('click', async () => {

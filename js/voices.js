@@ -31,17 +31,56 @@ export async function delAudio(k) { return db.del('audio', k); }
 // ---------- ElevenLabs ----------
 const API = 'https://api.elevenlabs.io';
 let voiceCache = null;
+// Beim Kopieren rutschen oft Leerzeichen, Zeilenumbrüche, unsichtbare Zeichen oder Anführungszeichen mit rein
+export const cleanKey = k => {
+  const s = String(k || '').replace(/[\s​-‍⁠﻿"'„“”‚‘’`]/g, '');
+  return (s.match(/sk_[A-Za-z0-9]+/) || [s])[0];
+};
+// Verständliche Fehlermeldung aus der Antwort von ElevenLabs
+async function failMsg(r, perm) {
+  let d = {};
+  try { const j = await r.json(); d = j?.detail || j || {}; } catch {}
+  if (typeof d === 'string') d = { message: d };
+  const st = d.status || '', msg = d.message || '';
+  if (st === 'invalid_api_key_length') {
+    const m = msg.match(/exactly (\d+) characters, got (\d+)/);
+    return `Der Schlüssel ist unvollständig${m ? ` (${m[2]} statt ${m[1]} Zeichen)` : ''}. Kopier ihn nochmal komplett aus ElevenLabs oder leg dort einen neuen an.`;
+  }
+  if (st === 'missing_permissions' || /permission/i.test(msg)) return `Dem Schlüssel fehlt die Berechtigung „${perm}“. In ElevenLabs beim API-Key einschalten.`;
+  if (st === 'detected_unusual_activity') return 'ElevenLabs hat das kostenlose Konto vorübergehend gesperrt (ungewöhnliche Aktivität, z. B. VPN). Ohne VPN nochmal versuchen.';
+  if (r.status === 401 || st === 'invalid_api_key' || d.type === 'authentication_error') return 'Der Schlüssel stimmt nicht oder ist veraltet. Kopier ihn nochmal aus ElevenLabs (Developers › API Keys).';
+  if (r.status === 402 || r.status === 429 || st === 'quota_exceeded') return 'ElevenLabs-Guthaben aufgebraucht oder zu viele Anfragen.';
+  if (r.status >= 500) return `ElevenLabs hat gerade eine Störung (${r.status}). Versuch es später nochmal.`;
+  return `ElevenLabs-Fehler ${r.status}${msg ? ': ' + msg : ''}`;
+}
+async function call(url, opts, perm) {
+  let r;
+  try { r = await fetch(url, opts); }
+  catch { throw new Error(navigator.onLine ? 'ElevenLabs nicht erreichbar. Blockiert ein Werbeblocker oder Firmen-WLAN api.elevenlabs.io?' : 'Du bist offline.'); }
+  if (!r.ok) throw new Error(await failMsg(r, perm));
+  return r;
+}
+const listVoices = async key => {
+  const j = await (await call(API + '/v1/voices', { headers: { 'xi-api-key': key } }, 'Voices: Read')).json();
+  return (j.voices || []).map(v => ({ id: v.voice_id, name: v.name, preview: v.preview_url, labels: v.labels || {} }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+};
+
 export const eleven = {
-  key: () => ls.get('eleven.key', ''),
-  setKey(k) { ls.set('eleven.key', (k || '').trim()); voiceCache = null; },
+  key: () => cleanKey(ls.get('eleven.key', '')),
+  setKey(k) { ls.set('eleven.key', cleanKey(k)); voiceCache = null; },
+  // Erst prüfen, dann speichern: ein kaputter Schlüssel darf den funktionierenden nicht ersetzen
+  async checkAndSave(k) {
+    const key = cleanKey(k);
+    if (!key) throw new Error('Füge zuerst den Schlüssel ein.');
+    const list = await listVoices(key);
+    this.setKey(key);
+    voiceCache = list;
+    return list;
+  },
   async voices() {
     if (voiceCache) return voiceCache;
-    const r = await fetch(API + '/v1/voices', { headers: { 'xi-api-key': this.key() } });
-    if (r.status === 401) throw new Error('Schlüssel ungültig oder ohne Berechtigung „Voices: Read“.');
-    if (!r.ok) throw new Error('ElevenLabs antwortet nicht (' + r.status + ').');
-    const j = await r.json();
-    voiceCache = (j.voices || []).map(v => ({ id: v.voice_id, name: v.name, preview: v.preview_url, labels: v.labels || {} }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    voiceCache = await listVoices(this.key());
     return voiceCache;
   },
   async quota() {
@@ -53,14 +92,11 @@ export const eleven = {
     } catch { return null; }
   },
   async tts(text, voiceId) {
-    const r = await fetch(`${API}/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`, {
+    const r = await call(`${API}/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`, {
       method: 'POST',
       headers: { 'xi-api-key': this.key(), 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
       body: JSON.stringify({ text: speakable(text), model_id: 'eleven_multilingual_v2', voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.2 } })
-    });
-    if (r.status === 401) throw new Error('Schlüssel ungültig oder ohne Berechtigung „Text to Speech“.');
-    if (r.status === 402 || r.status === 429) throw new Error('ElevenLabs-Guthaben aufgebraucht oder zu viele Anfragen.');
-    if (!r.ok) throw new Error('ElevenLabs-Fehler ' + r.status);
+    }, 'Text to Speech');
     return r.blob();
   }
 };
