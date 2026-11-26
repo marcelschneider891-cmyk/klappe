@@ -2,6 +2,7 @@
 import { $, esc, ICON, setTop, setFab, toast, buzz } from './ui.js';
 import { tts } from './speech.js';
 import { ls } from './db.js';
+import { eleven, defaults as voiceDefaults, elKey, getAudio, putAudio } from './voices.js';
 
 export const STEPS = [
   { t: 'Ankommen und atmen', s: 45, d: 'Füße hüftbreit, Knie locker, Schultern fallen lassen. Vier Sekunden durch die Nase einatmen, sechs Sekunden auf „sss“ ausatmen.' },
@@ -15,6 +16,16 @@ export const STEPS = [
   { t: 'Fokus', s: 30, d: 'Augen zu, drei tiefe Atemzüge. Denk an deine nächste Szene: Was will deine Figur, und von wem?' }
 ];
 export const totalMin = () => Math.round(STEPS.reduce((a, s) => a + s.s, 0) / 60);
+
+const textOf = st => `${st.t}. ${st.d}`;
+export const warmupChars = () => STEPS.reduce((a, st) => a + textOf(st).length, 0);
+// Gewählte Stimme fürs Warm-up: Handy oder ElevenLabs (mit eigener Stimme)
+function voiceCfg() {
+  const v = ls.get('warmup.voice', null);
+  if (v) return v;
+  const d = voiceDefaults().elevenVoice;
+  return eleven.key() && d ? { source: 'eleven', id: d.id, name: d.name } : { source: 'device' };
+}
 
 function beep() {
   try { const ac = new (window.AudioContext || window.webkitAudioContext)(); const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 880; g.gain.value = 0.08; o.connect(g).connect(ac.destination); o.start(); setTimeout(() => { o.stop(); ac.close(); }, 160); } catch {}
@@ -35,7 +46,10 @@ export async function warmupView(view, { go }) {
      <button class="rc play" id="wPlay" type="button" aria-label="Start">${ICON.play}</button>
      <button class="rc" id="wNext" type="button" aria-label="Weiter">${ICON.next}</button>
     </div>
-    <div class="set card" style="width:100%;max-width:460px;text-align:left"><div class="li-main"><b>Übungen ansagen</b><small>Die Stimme liest jede Übung vor</small></div><label class="switch"><input type="checkbox" id="wSpeak"${speak ? ' checked' : ''} aria-label="Übungen ansagen"><i></i></label></div>
+    <div class="card pad stack" style="width:100%;max-width:460px;text-align:left">
+     <div class="set" style="padding:0"><div class="li-main"><b>Übungen ansagen</b><small>Die Stimme liest jede Übung vor</small></div><label class="switch"><input type="checkbox" id="wSpeak"${speak ? ' checked' : ''} aria-label="Übungen ansagen"><i></i></label></div>
+     <div id="wVoice"></div>
+    </div>
     <p class="legal">Insgesamt etwa ${totalMin()} Minuten. Leertaste startet und pausiert, Pfeile springen.</p>
    </div>`;
   const draw = () => {
@@ -47,18 +61,71 @@ export async function warmupView(view, { go }) {
     $('#wRing', view).style.setProperty('--p', Math.round((1 - left / s.s) * 100));
     $('#wPlay', view).innerHTML = running ? ICON.pause : ICON.play;
   };
-  const announce = () => { if (speak && running) tts.speak(`${STEPS[i].t}. ${STEPS[i].d}`, { rate: 1 }); };
+  // ---- Stimme ----
+  let vc = voiceCfg(), audio = null, token = 0, fetching = null;
+  const drawVoice = async () => {
+    const box = $('#wVoice', view);
+    const hasKey = !!eleven.key();
+    box.innerHTML = `<div class="field"><label>Stimme</label><div class="seg" id="wSrc"><button type="button" data-k="device"${vc.source !== 'eleven' ? ' class="on"' : ''}>Handy</button><button type="button" data-k="eleven"${vc.source === 'eleven' ? ' class="on"' : ''}>ElevenLabs</button></div></div>
+     ${vc.source === 'eleven' ? (hasKey ? `<div class="field"><label for="wEl">ElevenLabs-Stimme</label><select class="inp" id="wEl"><option value="">Lädt …</option></select></div><p class="muted small" id="wInfo">Jede Ansage wird einmal erzeugt und gespeichert. Alle 9 Übungen zusammen kosten einmalig etwa ${warmupChars().toLocaleString('de-DE')} Zeichen Guthaben, danach nichts mehr.</p>`
+       : `<p class="muted small">Für ElevenLabs trag zuerst deinen Schlüssel in den Einstellungen ein.</p><a class="btn tonal" href="#einstellungen">Zu den Einstellungen</a>`) : ''}`;
+    $('#wSrc', box).onclick = e => {
+      const b = e.target.closest('[data-k]'); if (!b) return;
+      vc = b.dataset.k === 'eleven' ? { source: 'eleven', id: vc.id || voiceDefaults().elevenVoice?.id, name: vc.name || voiceDefaults().elevenVoice?.name } : { ...vc, source: 'device' };
+      ls.set('warmup.voice', vc); halt(); drawVoice();
+    };
+    const sel = $('#wEl', box);
+    if (!sel) return;
+    try {
+      const list = await eleven.voices();
+      if (!vc.id && list[0]) { vc = { source: 'eleven', id: list[0].id, name: list[0].name }; ls.set('warmup.voice', vc); }
+      sel.innerHTML = list.map(v => `<option value="${esc(v.id)}"${v.id === vc.id ? ' selected' : ''}>${esc(v.name)}</option>`).join('');
+      sel.onchange = () => { vc = { source: 'eleven', id: sel.value, name: sel.selectedOptions[0].textContent }; ls.set('warmup.voice', vc); halt(); toast('Stimme: ' + vc.name); };
+    } catch (err) { sel.outerHTML = `<p class="small" style="color:var(--bad)">${esc(err.message)}</p>`; }
+  };
+  // Ansage holen: aus dem Speicher oder einmal bei ElevenLabs erzeugen
+  const clip = async st => {
+    const k = elKey(vc.id, textOf(st));
+    let b = await getAudio(k);
+    if (!b) { b = await eleven.tts(textOf(st), vc.id); await putAudio(k, b); }
+    return b;
+  };
+  // Die nächsten Ansagen im Hintergrund vorbereiten, damit es ohne Pause weitergeht
+  const prefetch = from => {
+    if (fetching || vc.source !== 'eleven' || !vc.id || !eleven.key()) return;
+    fetching = (async () => { for (let n = from; n < STEPS.length; n++) { try { await clip(STEPS[n]); } catch { break; } } })().finally(() => { fetching = null; });
+  };
+  const halt = () => { token++; tts.cancel(); if (audio) { audio.pause(); URL.revokeObjectURL(audio.src); audio = null; } };
+  const announce = async () => {
+    halt();
+    if (!speak || !running) return;
+    const my = token, st = STEPS[i];
+    if (vc.source === 'eleven' && vc.id && eleven.key()) {
+      try {
+        const b = await clip(st);
+        if (my !== token) return;
+        audio = new Audio(URL.createObjectURL(b));
+        await audio.play();
+        prefetch(i + 1);
+        return;
+      } catch (err) {
+        if (my !== token) return;
+        toast(err.message + ' Ich nehme solange die Handy-Stimme.');
+      }
+    }
+    tts.speak(textOf(st), { rate: 1 });
+  };
   const goStep = n => {
     if (n >= STEPS.length) { stop(); toast('Warm-up geschafft. Du bist bereit!'); buzz(20); i = 0; left = STEPS[0].s; draw(); return; }
     i = Math.max(0, n); left = STEPS[i].s; beep(); buzz(10); draw(); announce();
   };
   const tick = () => { left--; if (left <= 0) goStep(i + 1); else draw(); };
   const start = () => { running = true; clearInterval(iv); iv = setInterval(tick, 1000); try { navigator.wakeLock?.request('screen').then(w => (view._wake = w)); } catch {} draw(); announce(); };
-  const stop = () => { running = false; clearInterval(iv); tts.cancel(); try { view._wake?.release(); } catch {} draw(); };
+  const stop = () => { running = false; clearInterval(iv); halt(); try { view._wake?.release(); } catch {} draw(); };
   $('#wPlay', view).onclick = () => running ? stop() : start();
   $('#wNext', view).onclick = () => goStep(i + 1);
   $('#wPrev', view).onclick = () => goStep(i - 1);
-  $('#wSpeak', view).onchange = e => { speak = e.target.checked; ls.set('warmup.speak', speak); if (!speak) tts.cancel(); };
+  $('#wSpeak', view).onchange = e => { speak = e.target.checked; ls.set('warmup.speak', speak); if (!speak) halt(); };
   const keys = e => {
     if (/input|textarea|select/i.test(e.target.tagName) || !$('#sheet').hidden) return;
     if (e.key === ' ') { e.preventDefault(); $('#wPlay', view).click(); }
@@ -66,5 +133,6 @@ export async function warmupView(view, { go }) {
   };
   document.addEventListener('keydown', keys);
   draw();
+  drawVoice();
   return () => { stop(); document.removeEventListener('keydown', keys); };
 }

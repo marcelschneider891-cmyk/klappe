@@ -2,7 +2,7 @@
 // Jede Einstellung hat ihren eigenen Zeitstempel, beim Abgleich gewinnt pro Einstellung die neuere.
 import { db } from './db.js';
 
-export const LS_SYNC = ['eleven.key', 'voice.defaults', 'rehearse.opts', 'take.pattern', 'warmup.speak', 'radar.saved', 'radar.hidden'];
+export const LS_SYNC = ['eleven.key', 'voice.defaults', 'rehearse.opts', 'take.pattern', 'warmup.speak', 'warmup.voice', 'radar.saved', 'radar.hidden'];
 const P = 'klappe.';
 const stamps = () => { try { return JSON.parse(localStorage.getItem(P + 'settings.t') || '{}'); } catch { return {}; } };
 const setStamps = s => { try { localStorage.setItem(P + 'settings.t', JSON.stringify(s)); } catch {} };

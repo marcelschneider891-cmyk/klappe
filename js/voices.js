@@ -46,10 +46,10 @@ async function failMsg(r, perm) {
     const m = msg.match(/exactly (\d+) characters, got (\d+)/);
     return `Der Schlüssel ist unvollständig${m ? ` (${m[2]} statt ${m[1]} Zeichen)` : ''}. Kopier ihn nochmal komplett aus ElevenLabs oder leg dort einen neuen an.`;
   }
-  if (st === 'missing_permissions' || /permission/i.test(msg)) return `Dem Schlüssel fehlt die Berechtigung „${perm}“. In ElevenLabs beim API-Key einschalten.`;
+  if (st === 'missing_permissions' || /permission/i.test(msg)) return `Dem Schlüssel fehlt die Berechtigung „${perm}“. In ElevenLabs unter Entwickler › API-Schlüssel beim Schlüssel einschalten.`;
   if (st === 'detected_unusual_activity') return 'ElevenLabs hat das kostenlose Konto vorübergehend gesperrt (ungewöhnliche Aktivität, z. B. VPN). Ohne VPN nochmal versuchen.';
-  if (r.status === 401 || st === 'invalid_api_key' || d.type === 'authentication_error') return 'Der Schlüssel stimmt nicht oder ist veraltet. Kopier ihn nochmal aus ElevenLabs (Developers › API Keys).';
-  if (r.status === 402 || r.status === 429 || st === 'quota_exceeded') return 'ElevenLabs-Guthaben aufgebraucht oder zu viele Anfragen.';
+  if (r.status === 402 || r.status === 429 || st === 'quota_exceeded' || /quota|credits/i.test(msg)) return 'ElevenLabs-Guthaben aufgebraucht oder zu viele Anfragen. Dein Guthaben siehst du bei ElevenLabs unter „Abonnement“.';
+  if (r.status === 401 || st === 'invalid_api_key' || d.type === 'authentication_error') return 'Der Schlüssel stimmt nicht oder ist veraltet. Kopier ihn nochmal aus ElevenLabs (Entwickler › API-Schlüssel).';
   if (r.status >= 500) return `ElevenLabs hat gerade eine Störung (${r.status}). Versuch es später nochmal.`;
   return `ElevenLabs-Fehler ${r.status}${msg ? ': ' + msg : ''}`;
 }
@@ -61,7 +61,7 @@ async function call(url, opts, perm) {
   return r;
 }
 const listVoices = async key => {
-  const j = await (await call(API + '/v1/voices', { headers: { 'xi-api-key': key } }, 'Voices: Read')).json();
+  const j = await (await call(API + '/v1/voices', { headers: { 'xi-api-key': key } }, 'Stimmen: Lesen')).json();
   return (j.voices || []).map(v => ({ id: v.voice_id, name: v.name, preview: v.preview_url, labels: v.labels || {} }))
     .sort((a, b) => a.name.localeCompare(b.name));
 };
@@ -96,7 +96,7 @@ export const eleven = {
       method: 'POST',
       headers: { 'xi-api-key': this.key(), 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
       body: JSON.stringify({ text: speakable(text), model_id: 'eleven_multilingual_v2', voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.2 } })
-    }, 'Text to Speech');
+    }, 'Text-zu-Sprache: Zugriff');
     return r.blob();
   }
 };

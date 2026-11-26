@@ -229,7 +229,7 @@ export async function settingsView(view, { go }) {
     </div>
     <div class="card pad stack" style="margin-top:12px">
      <div class="row" style="justify-content:space-between"><b>ElevenLabs</b><span class="tag${eleven.key() ? ' ok' : ''}" id="elState">${eleven.key() ? 'Verbunden' : 'Nicht verbunden'}</span></div>
-     <p class="muted small">Natürliche Stimmen mit deinem eigenen ElevenLabs-Konto. Den API-Schlüssel findest du auf elevenlabs.io unter „Developers › API Keys“. Er braucht die Rechte „Text to Speech“ und „Voices: Read“. Ist der Abgleich an, kommt er automatisch auch auf dein anderes Gerät.</p>
+     <p class="muted small">Natürliche Stimmen mit deinem eigenen ElevenLabs-Konto. Den API-Schlüssel findest du auf elevenlabs.io unter „Entwickler › API-Schlüssel“. Er braucht die Rechte „Text-zu-Sprache“ (Zugriff) und „Stimmen“ (Lesen). Ist der Abgleich an, kommt er automatisch auch auf dein anderes Gerät.</p>
      <div class="field"><label for="sKey">API-Schlüssel</label><input class="inp" id="sKey" type="password" autocomplete="off" spellcheck="false" value="${esc(eleven.key())}" placeholder="sk_…"></div>
      <div class="grid2"><button class="btn tonal" id="sKeySave" type="button">Prüfen und speichern</button><button class="btn out" id="sKeyDel" type="button"${eleven.key() ? '' : ' disabled'}>Entfernen</button></div>
      <div id="sElVoice"></div>

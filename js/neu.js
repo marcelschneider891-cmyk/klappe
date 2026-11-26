@@ -4,9 +4,12 @@ import { esc, ICON, setTop, setFab, largeTitle } from './ui.js';
 
 export const CHANGELOG = [
   {
-    id: '2026-11-25b',
-    titel: 'ElevenLabs repariert',
+    id: '2026-11-25c',
+    titel: 'ElevenLabs überall',
     datum: '25. November 2026',
+    neu: [
+      ['Warm-up mit ElevenLabs', 'Das Warm-up kann jetzt mit deiner ElevenLabs-Stimme ansagen. Jede Ansage wird nur einmal erzeugt und dann gespeichert.']
+    ],
     besser: [
       'Klare Meldung, was mit dem ElevenLabs-Schlüssel nicht stimmt, statt nur „antwortet nicht“',
       'Leerzeichen, Zeilenumbrüche und Anführungszeichen beim Einfügen des Schlüssels werden automatisch entfernt'
